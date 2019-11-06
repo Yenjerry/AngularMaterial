@@ -57,7 +57,7 @@ export class DashboardContentComponent implements OnInit, AfterViewInit {
 
         this.dashboard = [
             { cols: 2, rows: 2, y: 0, x: 0, component: GlobeEleComponent },
-            // { cols: 2, rows: 2, y: 0, x: 2, component: TestGlobeComponent }
+            // { cols: 2, rows: 2, y: 0, x: 2, component: GlobalComponent }
         ];
 
         // console.log(this.route.snapshot.paramMap.get('id'), '!!!!!!!!!!!!!!!!!!!!!!!!!!')

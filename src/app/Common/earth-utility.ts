@@ -7,12 +7,17 @@ import { geoDistance, geoInterpolate } from 'd3-geo';
 import { CubicBezierCurve3, Vector3, Mesh } from 'three';
 import TWEEN from '@tweenjs/tween.js';
 
-export class EarthUtility {
+export class EarthManagement {
 
     utilityGlobe = new ThreeGlobe();
 
-    constructor(private http: HttpClient) {
-        // this.createEarth('sphere');
+    // Default earth mode.
+    mode = 'sphere'
+    radius = 100;
+
+    constructor(private http: HttpClient, mode: 'sphereline' | 'sphere' | 'plane', radius = 100) {
+        this.mode = mode;
+        this.radius = radius;
     }
 
     /**
@@ -23,8 +28,7 @@ export class EarthUtility {
      * @param mode {string}, 'sphereline' | 'sphere' | 'plane'
      * @param radius {number} the radius for earth, default value 100.
      */
-    createEarth(mode: 'sphereline' | 'sphere' | 'plane', radius = 100): Observable<any> {
-        console.log(mode)
+    createEarth(): Observable<any> {
 
         const observable = new Observable(subscriber => {
 
@@ -32,29 +36,55 @@ export class EarthUtility {
 
             this.fetchGeojson().subscribe((result) => {
 
-                console.log(result)
-
-                switch (mode) {
+                switch (this.mode) {
                     case 'plane':
+                        group.rotateY(Math.PI);
+                        group.rotateZ(Math.PI / 2);
                         break;
                     case 'sphere':
-                        break;
+
+                        // load texture and generate globe mesh.
+                        var globeMesh = new THREE.SphereGeometry(this.radius, 32, 32);
+                        var cloudMesh = new THREE.SphereGeometry(this.radius, 32, 32);
+                        var texture = new THREE.TextureLoader().load('/assets/images/2_no_clouds_4k.jpg');
+                        var texturebump = new THREE.TextureLoader().load('/assets/images/elev_bump_4k.jpg');
+                        var texturecloud = new THREE.TextureLoader().load('/assets/images/fair_clouds_4k.png');
+
+                        // immediately use the texture for material creation
+                        var material = new THREE.MeshPhongMaterial({
+                            map: texture,
+                            bumpMap: texturebump,
+                            bumpScale: 0.005
+                        });
+
+                        var materialCloud = new THREE.MeshPhongMaterial({
+                            map: texturecloud,
+                            transparent: true
+                        });
+
+                        // var material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                        var sphere = new THREE.Mesh(globeMesh, material);
+                        var cloud = new THREE.Mesh(cloudMesh, materialCloud);
+                        sphere.rotation.x = Math.PI / 2;
+                        cloud.rotation.x = Math.PI / 2;
+                        group.add(sphere);
+                        group.add(cloud);
+                    // break;
                     case 'sphereline':
+                        group.rotation.x = -Math.PI / 2;
+                        group.rotation.z = -Math.PI / 2;
                         break;
                 }
 
-                this.drawThreeGeo(result[0], radius, mode, {
+                this.drawThreeGeo(result[0], this.radius, this.mode, {
                     color: 0x489e77,
                     // skinning: true
                 }, group);
 
-                this.drawThreeGeo(result[1], radius, mode, {
+                this.drawThreeGeo(result[1], this.radius, this.mode, {
                     color: 0x489e77,
                     // skinning: true
                 }, group);
-
-                group.rotation.x = -Math.PI / 2;
-                group.rotation.z = -Math.PI / 2;
 
                 subscriber.next(group);
                 subscriber.complete();
@@ -64,10 +94,13 @@ export class EarthUtility {
         return observable;
     }
 
+    /**
+     * Fetch Geojson data.
+     */
     fetchGeojson(): Observable<any[]> {
         let response1 = this.http.get('/assets/twCounty2010.geo.json');
         let response2 = this.http.get('/assets/custom.geo.json');
-        // Observable.forkJoin (RxJS 5) changes to just forkJoin() in RxJS 6
+
         return forkJoin([response1, response2]);
     }
 
@@ -78,7 +111,7 @@ export class EarthUtility {
      * @param config {json}, the config for curve.
      * @param materialConfig {MeshLineMaterial} config for line material.
      */
-    drawCurveLine(startPoint, endPoint, container, config?, materialConfig?): THREE.Mesh {
+    drawCurveLine(startPoint, endPoint, config?, materialConfig?) {
 
         const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
 
@@ -111,24 +144,47 @@ export class EarthUtility {
             side: THREE.DoubleSide
         }, materialConfig)
 
-        let altitude = geoDistance(startPoint, endPoint) / 2 * config.altAutoScale;
-
         let bezierPoints = [startPoint];
 
-        const computeBezierControlPointFun = geoInterpolate(startPoint, endPoint);
+        // The earth is sphere.
+        if (this.mode !== 'plane') {
+            let altitude = geoDistance(startPoint, endPoint) / 2 * config.altAutoScale;
+            const computeBezierControlPointFun = geoInterpolate(startPoint, endPoint);
 
-        Array.from(config.bezierControlPointPercents).forEach((o) => {
-            // The bezier control point.
-            let controlPoint = computeBezierControlPointFun(o as number);
-            // Set altitude to point.
-            controlPoint.push(altitude * config.altitudeRate);
-            bezierPoints.push(controlPoint);
-        });
+            Array.from(config.bezierControlPointPercents).forEach((o) => {
+                // The bezier control point.
+                let controlPoint = computeBezierControlPointFun(o as number);
+                // Set altitude to point.
+
+                controlPoint.push(altitude * config.altitudeRate);
+                bezierPoints.push(controlPoint);
+            });
+        }
+        // The earth is plane.
+        else {
+            let startCoord = this.convertToPlaneCoords(startPoint, this.radius);
+            let endCoord = this.convertToPlaneCoords(endPoint, this.radius);
+            Array.from(config.bezierControlPointPercents).forEach((o, i) => {
+                let percent = o as number;
+                console.log(Math.abs(i * 1.5 - percent), (1 - percent))
+                bezierPoints.push([
+                    (startCoord[0] * Math.abs(i * 1.5 - percent) + endCoord[0] * (1 - percent)),
+                    (startCoord[1] * Math.abs(i * 1.5 - percent) + endCoord[1] * (1 - percent)),
+                    5
+                ]);
+            });
+        }
 
         bezierPoints.push(endPoint);
 
         let fg = bezierPoints.map(o => {
-            let pt2 = this.utilityGlobe.getCoords(o[1], o[0], o[2]);
+            let pt2;
+            if (this.mode === 'plane') {
+                pt2 = o[2] != 5 ? this.convertToPlaneCoords(o, this.radius) : o;
+                pt2 = new THREE.Vector3(...pt2, o[2])
+            }
+            else
+                pt2 = this.convertToSphereCoords(o[0], o[1], o[2]);
             return new THREE.Vector3(pt2.x, pt2.y, pt2.z);
         });
 
@@ -144,30 +200,31 @@ export class EarthUtility {
         line.setGeometry(geometry);
 
         var material = new MeshLineMaterial(materialConfig);
-        var tween = new TWEEN.Tween({ count: 1 });
+        var tween = new TWEEN.Tween({ count: 0.5 });
         tween.to({
             count: 0
-        }, 3000);
+        }, 1000);
+
+        // tween.easing(TWEEN.Easing.Exponential.In);
 
         tween.onUpdate(function (object) {
             material.dashOffset = object.count;
             material.needsUpdate = true;
-            // geometry.dispose();
-            // let count = Math.ceil(object.count);
-            // geometry = path.setFromPoints(bezierTotalPoints.slice(count - 10 < 0 ? 0 : count - 10, count));
-            // line.setGeometry(geometry);
         });
 
+        let result = new THREE.Group();
+
         tween.onRepeat(() => {
-            this.generateAttackLight(fg[3], container);
+            this.generateAttackLight(fg[3], result);
         });
 
         tween.start();
         tween.repeat(Infinity);
 
         var curveObject = new THREE.Mesh(line.geometry, material); // this syntax could definitely be improved!
+        result.add(curveObject);
 
-        return curveObject;
+        return result;
     }
 
     /**
@@ -189,7 +246,13 @@ export class EarthUtility {
             wireframe: true
         }, sphereMaterialConfig);
 
-        let point = this.utilityGlobe.getCoords(coordinate[1], coordinate[0]);
+        let point;
+        if (this.mode == 'plane') {
+            point = this.convertToPlaneCoords(coordinate, this.radius);
+            point = new THREE.Vector3(...point);
+        }
+        else
+            point = this.convertToSphereCoords(coordinate[0], coordinate[1]);
 
         var geometry = new THREE.SphereGeometry(sphereConfig.radius, sphereConfig.widthSegments, sphereConfig.heightSegments);
         var material = new THREE.MeshBasicMaterial(sphereMaterialConfig);
@@ -301,7 +364,7 @@ export class EarthUtility {
         function getConversionFunctionName(shape) {
             var conversionFunctionName;
 
-            if (shape == 'sphere') {
+            if (shape == 'sphere' || shape == 'sphereline') {
                 conversionFunctionName = convertToSphereCoords;
             } else if (shape == 'plane') {
                 conversionFunctionName = convertToPlaneCoords;
@@ -446,75 +509,187 @@ export class EarthUtility {
     }
 
     /**
+     * 
+     * @param coordinates_array [number, number], the first number is represented longitude, second is represented latitude.
+     * @param radius 
+     */
+    convertToPlaneCoords(coordinates_array, radius) {
+        var lon = coordinates_array[0];
+        var lat = coordinates_array[1];
+
+        return [(lon / 180) * radius, (lat / 180) * radius]
+    }
+
+    /**
      * Convert longtitude/latitude to shpere coordinate.
      * @param longtitude
      * @param latitude
      * @param altidute  
      */
-    getCoords(longtitude, latitude, altidute?) {
+    convertToSphereCoords(longtitude, latitude, altidute?) {
         return this.utilityGlobe.getCoords(latitude, longtitude, altidute);
     }
 
     /**
-     * The camera move to specified coordinate animate.
-     * @param camera 
-     * @param targerPoint 
+     * 
+     * @param targerPoint [number, number], the first number is represented longitude, second is represented latitude.
+     * @param camera {THREE.Camera}, the camera for control.
+     * @param control {TrackballControls}, if mode is plane then this parameter is required.
      */
-    foucsCameraToShperePoint(camera, targerPoint) {
+    foucsCameraToPoint(targerPoint, camera, control?): Observable<any> {
 
-        let point = this.getCoords(targerPoint[0], targerPoint[1]);
-        let camDistance = camera.position.length();
-
-        // backup original rotation
-        var startRotation = camera.position.clone();
-
-        // final rotation (with lookAt)
-        camera.position.copy(point).normalize().multiplyScalar(camDistance);
-        var endRotation = camera.position.clone();
-
-        // revert to original rotation
-        camera.position.copy(startRotation);
-
-        var tween = new TWEEN.Tween(startRotation);
-        tween.to(endRotation, 1000);
-
-        tween.onUpdate(function (object) {
-            camera.position.copy(object);
-            // console.log('fire', object)
-        });
-        tween.start();
+        switch (this.mode) {
+            case 'plane':
+                if (!control)
+                    throw 'The plane mode need pass TrackballControls object.';
+                return this.focusCameraToPlanePoint(targerPoint, camera, control);
+            case 'sphere':
+            case 'sphereline':
+                return this.foucsCameraToSpherePoint(targerPoint, camera);
+        }
     }
 
-    generateAttackLight(point: Vector3, container) {
+    /**
+     * The camera move to specified coordinate animate whit shpere earth.
+     * @param camera 
+     * @param targerPoint [number, number], the first number is represented longitude, second is represented latitude.
+     */
+    foucsCameraToSpherePoint(targerPoint, camera): Observable<any> {
+
+        const observable = new Observable(subscriber => {
+            let camDistance = camera.position.length();
+
+            let point = this.convertToSphereCoords(targerPoint[0], targerPoint[1]);
+
+            // backup original rotation
+            var startPosition = camera.position.clone();
+
+            // final rotation (with lookAt)
+            camera.position.copy(point).normalize().multiplyScalar(camDistance);
+            var endPosition = camera.position.clone();
+
+            // revert to original rotation
+            camera.position.copy(startPosition);
+
+            var tween = new TWEEN.Tween(startPosition);
+            tween.to(endPosition, 1500);
+            tween.easing(TWEEN.Easing.Exponential.In);
+
+            tween.onUpdate(function (object) {
+                camera.position.set(object.x, object.y, startPosition.z);
+            });
+
+            tween.onComplete(() => {
+                subscriber.next(true);
+                subscriber.complete();
+            })
+
+            tween.start();
+        });
+
+
+
+        return observable;
+    }
+
+    /**
+     * The camera move to specified coordinate animate with plane earth.
+     * @param targerPoint 
+     * @param camera 
+     * @param control 
+     */
+    focusCameraToPlanePoint(targerPoint, camera, control): Observable<any> {
+
+        const observable = new Observable(subscriber => {
+
+            // Convert coordinate to plane coordinate.
+            let point = this.convertToPlaneCoords(targerPoint, this.radius);
+            // Create THREE Vector3
+            const destPosition = new THREE.Vector3(...point);
+            // Back orignal camera position.
+            let startPosition = camera.position.clone();
+
+            // Init animate data.
+            let tween = new TWEEN.Tween(startPosition);
+            tween.to({
+                x: destPosition.x,
+                y: destPosition.y,
+                z: 30
+            }, 1500);
+
+            tween.easing(TWEEN.Easing.Exponential.In);
+
+            // Every frame update camera config.
+            tween.onUpdate(function (object) {
+
+                // Set TrackballControls new position
+                control.position0.set(object.x, object.y, object.z);
+
+                // TrackballControls update position need call reset to init.
+                control.reset();
+                control.zoomSpeed = 0.5;
+                control.rotateSpeed = 0.5;
+                control.panSpeed = 0.1;
+
+                // TrackballControls lookAt target.
+                control.target.set(object.x, object.y, 0);
+            });
+
+            tween.onComplete(() => {
+                subscriber.next(true);
+                subscriber.complete();
+            })
+
+            // Play animate.
+            tween.start();
+        });
+
+        return observable;
+    }
+
+    /**
+     * 
+     * @param point When the attack line animate is finish then play the highlight.
+     * @param container 
+     * @param duration {number} the attack light animate duration setting.
+     */
+    generateAttackLight(point: Vector3, container, duration = 150) {
         // debugger;
         var geometry = new THREE.TorusGeometry(0.5, 0.1, 2, 32);
         var material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
         var torus = new THREE.Mesh(geometry, material);
         torus.position.copy(point);
 
-        // var axesHelper = new THREE.AxesHelper(250);
-        torus.lookAt(0, 0, 0)
-        // torus.add(axesHelper);
+        // If earth shape is sphere then the object need lookAt sphere center.
+        if (this.mode !== 'plane')
+            torus.lookAt(0, 0, 0);
 
         var tween = new TWEEN.Tween({ scale: 0.5 });
         tween.to({
             scale: 2
-        }, 100);
+        }, duration);
 
         tween.onUpdate(function (object) {
             torus.scale.set(object.scale, object.scale, object.scale);
         });
+
+        // Animate finish then remove the object and release all resource.
         tween.onComplete(() => {
             container.remove(torus);
-            // torus.remove();
             geometry.dispose();
             material.dispose();
         });
+
         tween.start();
 
-        console.log(torus)
+        container.add(torus);
+    }
 
-        container.add(torus)
+    /**
+     * Generate dynamic point for [longitude, latitude]
+     */
+    generateDynamicPoint() {
+        return [(Math.random() - 0.5) * 180, (Math.random() - 0.5) * 360];
     }
 
 }

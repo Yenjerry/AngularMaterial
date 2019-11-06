@@ -86,8 +86,8 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
             .position()
             .flexibleConnectedTo(this.languageBtn._elementRef).withPositions([{
                 originX: 'start',
-                originY: 'center',
-                overlayX: 'end',
+                originY: 'top',
+                overlayX: 'start',
                 overlayY: 'top'
             }]);
 
