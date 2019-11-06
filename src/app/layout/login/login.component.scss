@@ -1,0 +1,25 @@
+.container {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-from-wrap {
+  width: 40vh;
+  //   height: 40vh;
+  padding: 4vh;
+  border-radius: 8px;
+  background-color: rgba(128, 128, 128, 0.2);
+
+  > * {
+    width: 100%;
+  }
+  button {
+    margin-top: 1vh;
+  }
+}
+
+.loading-progress {
+  margin-top: 1vh;
+}

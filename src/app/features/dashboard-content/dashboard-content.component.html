@@ -1,0 +1,5 @@
+<gridster [options]="options" style="background-color: rgba(128,128,128,0.1)">
+    <gridster-item [item]="item" *ngFor="let item of dashboard">
+        <div appDynamicComponentLoad [extraData]="item" [resizeSubject]="resizeSubject"></div>
+    </gridster-item>
+</gridster>

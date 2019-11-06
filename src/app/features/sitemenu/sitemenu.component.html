@@ -1,0 +1,10 @@
+<mat-toolbar color="primary">
+    <span>Angular 8 with Material</span>
+    <button type="button" mat-button (click)="drawer.toggle()">
+        Toggle sidenav
+    </button>
+    <!-- This fills the remaining space of the current row -->
+    <span class="fill-remaining-space"></span>
+
+    <span>{{auth.userInfo.name}}</span>
+</mat-toolbar>

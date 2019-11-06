@@ -1,0 +1,44 @@
+{
+	"metadata": {
+		"version": 4.5,
+		"type": "Object",
+		"generator": "Object3D.toJSON"
+	},
+	"geometries": [
+		{
+			"uuid": "8C3967D5-F81D-4912-A3CC-C79524F6BF95",
+			"type": "DodecahedronBufferGeometry",
+			"radius": 0.5,
+			"detail": 3
+		}],
+	"materials": [
+		{
+			"uuid": "CFA85A32-86C9-4DA5-BDE7-4809329423B5",
+			"type": "MeshLambertMaterial",
+			"color": 16777215,
+			"emissive": 15793928,
+			"depthFunc": 3,
+			"depthTest": true,
+			"depthWrite": true,
+			"stencilWrite": false,
+			"stencilWriteMask": 255,
+			"stencilFunc": 519,
+			"stencilRef": 0,
+			"stencilFuncMask": 255,
+			"stencilFail": 7680,
+			"stencilZFail": 7680,
+			"stencilZPass": 7680
+		}],
+	"object": {
+		"uuid": "DB95ECEB-D71C-445E-9072-7CBD98B50E2F",
+		"type": "Mesh",
+		"name": "Dodecahedron",
+		"userData": {
+			"test": 123
+		},
+		"layers": 1,
+		"matrix": [2.331184,0,0,0,0,0,0.5,0,0,-2.352808,0,0,0,1.311664,0.360324,1],
+		"geometry": "8C3967D5-F81D-4912-A3CC-C79524F6BF95",
+		"material": "CFA85A32-86C9-4DA5-BDE7-4809329423B5"
+	}
+}

@@ -1,0 +1,26 @@
+<div class="container mat-app-background" #logincontainer>
+    <form [formGroup]="registerForm" class="login-from-wrap">
+
+        <mat-form-field>
+            <input formControlName="account" matInput placeholder="{{'account'|translate}}" required  (drop)="testDrop($event)">
+            <mat-error *ngIf="controls.account.errors">*Invalid account.</mat-error>
+        </mat-form-field>
+
+        <mat-form-field>
+            <input formControlName="password" matInput type="password" placeholder="{{'password'|translate}}" required>
+            <mat-error *ngIf="controls.password.erz rors">*At least 6 digits.</mat-error>
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" (click)="login()">
+            {{'loginauth' | translate}}
+        </button>
+        <mat-divider></mat-divider>
+
+        <mat-error *ngIf="loginFail">*Account or password fail.</mat-error>
+
+        <div [hidden]="!loginProgress" class="loading-progress">
+            <mat-progress-bar mode="indeterminate" color="warn"></mat-progress-bar>
+        </div>
+
+    </form>
+</div>

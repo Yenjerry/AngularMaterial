@@ -1,0 +1,18 @@
+.example-viewport {
+  height: 100%;
+  width: 100%;
+  //   background-color: skyblue;
+}
+
+.example-item {
+  display: flex;
+  //   background-color: springgreen;
+  div {
+    display: flex;
+    width: 100%;
+  }
+  app-pie-chart {
+    width: 50%;
+    height: 300px;
+  }
+}
