@@ -11,5 +11,16 @@
     "setting": "Setting",
     "interface": "Interface",
     "flow": "Flow",
-    "group": "Group"
+    "group": "Group",
+    "aroundsource": "Camera around source ip",
+    "arounddest": "Camera around destination ip",
+    "changmode": "2D/3D",
+    "autorotation": "Auto rotation",
+    "openflowlist": "Open flow list",
+    "addflowinfo": "Add new flow",
+    "clearallflow": "Clear all flow info",
+    "source": "Source",
+    "target": "Target",
+    "destination" :"Destination",
+    "alerttips": "Show alert"
 }

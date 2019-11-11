@@ -1,62 +1,94 @@
+import { FlowServiceService } from './../../services/flow-service.service';
+import { FlowVisualizationMesh } from './../../Models/flow-base';
 import { Overlay } from '@angular/cdk/overlay';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, ViewContainerRef, TemplateRef } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, ViewContainerRef, TemplateRef, OnDestroy } from '@angular/core';
 import * as THREE from 'three';
-import ThreeGlobe from 'three-globe';
 import * as  TrackballControls from 'three-trackballcontrols';
-import { geoDistance, geoInterpolate } from 'd3-geo';
-import { CubicBezierCurve3, Clock } from 'three';
+import { Clock } from 'three';
 import TWEEN from '@tweenjs/tween.js';
-import { MeshLine, MeshLineMaterial } from 'three.meshline';
-import Bird from 'src/app/Models/bird';
 import status from 'stats.js';
 import { EarthManagement } from 'src/app/Common/earth-utility';
 import { TemplatePortal } from '@angular/cdk/portal';
+import { FlowBase, LocationPoint } from 'src/app/Models/flow-base';
 
 @Component({
     selector: 'app-globe-ele',
     templateUrl: './globe-ele.component.html',
     styleUrls: ['./globe-ele.component.scss']
 })
-export class GlobeEleComponent implements OnInit, AfterViewInit {
+export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
+    ngOnDestroy(): void {
+        this.stopRender = true;
+        this.featureOverlayRef.dispose();
+    }
 
     @ViewChild('webgl', { static: false }) webglEl: ElementRef;
     @ViewChild('features', { static: false }) features: TemplateRef<ElementRef>;
+    @ViewChild('countyDetail', { static: false }) countyDetail: TemplateRef<ElementRef>;
+    @ViewChild('flowList', { static: false }) flowListTemplate: TemplateRef<ElementRef>;
+    @ViewChild('warringTemplate', { static: false }) warringTemplate: TemplateRef<ElementRef>;
 
+    mode: 'sphere' | 'plane' = 'sphere';
     control;
     renderer;
     scene;
+    sunlight;
     camera;
-    composer;
     clock = new Clock();
     data;
+    globe;
     utility: EarthManagement;
+    focusCounty: FlowBase;
+    flowDatas: FlowBase[] = [];
+    enableAutoRotation = false;
+    earthReady = false;
 
-    constructor(private viewContainerRef: ViewContainerRef, http: HttpClient, private overlay: Overlay) {
-        this.utility = new EarthManagement(http, 'sphere');
+    constructor(private viewContainerRef: ViewContainerRef, private http: HttpClient, private overlay: Overlay, private flowService: FlowServiceService) {
+
+        this.utility = new EarthManagement(http, this.mode);
+        this.flowDatas = flowService.getFlowDatas();
+
+        // Register handle new data add event.
+        this.flowService.registerEvent().subscribe(() => {
+
+            // this.clearAllLine();
+            let newFlows = this.flowService.getFlowDatas().filter(o =>
+                !this.flowDatas.find(j => j.id == o.id)
+            );
+            this.flowDatas.push(...newFlows);
+
+            if (!this.earthReady) {
+                return;
+            }
+
+            this.generateVisualization(newFlows);
+        });
+    }
+
+    private convertGeoToLocationPoint(geoData): LocationPoint {
+        return Object.assign(new LocationPoint(), {
+            longitude: geoData.properties.longitude,
+            // Latidute.
+            latitude: geoData.properties.latitude,
+            county: geoData.properties.name
+        } as LocationPoint);
     }
 
     ngOnInit() {
-        window.onresize = () => {
-            this.responseive();
+        this.status = new status();
+
+        let statusContainer = document.getElementById('status');
+
+        if (statusContainer.childNodes.length == 0) {
+            statusContainer.appendChild(this.status.dom);
+            this.statusUpdate();
         }
-    }
-
-
-    responseive() {
-        // let globalContainer = this.viewContainerRef.element.nativeElement.querySelector('.global-conatiner');
-
-        // var width = globalContainer.clientWidth,
-        //     height = globalContainer.clientHeight;
-
-        // this.renderer.dispose();
-
-        // this.ngAfterViewInit();
     }
 
     status;
     enableControl = false;
-
+    featureOverlayRef;
     openFeatureOverlay() {
 
         // return;
@@ -69,30 +101,18 @@ export class GlobeEleComponent implements OnInit, AfterViewInit {
                 overlayY: 'top'
             }]);
 
-        console.log(strategy, this.webglEl, this.features, '!!!!!!!!!!!!!!!!!!!!!!!!!')
-
         const overlayRef = this.overlay.create({
             positionStrategy: strategy,
-            hasBackdrop: true,
-            backdropClass: 'opacitybackdrop'
+            // hasBackdrop: true,
+            // backdropClass: 'opacitybackdrop'
         });
 
-        overlayRef.backdropClick().subscribe(() => {
-            overlayRef.dispose();
-        });
-
+        // overlayRef.backdropClick().subscribe(() => {
+        //     overlayRef.dispose();
+        // });
+        this.featureOverlayRef = overlayRef;
         overlayRef.overlayElement.addEventListener('click', () => {
-
-            let pointArr = [
-                [121.5417977, 25.0601717],
-                [139.6007829, 35.6681625],
-                [-74.2598661, 40.6971494],
-                [-0.2416812, 51.5285582],
-                [120.9162945, 31.2231338]
-            ];
-
-            this.autoAroundPoint(pointArr);
-
+            // this.autoAroundPoint();
             // overlayRef.dispose();
         });
 
@@ -101,302 +121,398 @@ export class GlobeEleComponent implements OnInit, AfterViewInit {
         overlayRef.attach(optionElement);
     }
 
+    openFlowOverlay() {
+
+        // return;
+        const strategy = this.overlay
+            .position()
+            .flexibleConnectedTo(this.webglEl.nativeElement).withPositions([{
+                originX: 'end',
+                originY: 'top',
+                overlayX: 'end',
+                overlayY: 'top'
+            }]);
+
+        const overlayRef = this.overlay.create({
+            positionStrategy: strategy,
+            height: '100%'
+            // hasBackdrop: true,
+            // backdropClass: 'opacitybackdrop'
+        });
+
+        // overlayRef.backdropClick().subscribe(() => {
+        //     overlayRef.dispose();
+        // });
+
+        overlayRef.overlayElement.addEventListener('click', () => {
+            // this.autoAroundPoint();
+            overlayRef.dispose();
+        });
+
+        const optionElement = new TemplatePortal(this.flowListTemplate, this.viewContainerRef);
+
+        overlayRef.attach(optionElement);
+    }
+
+    toggleAlertOverlay() {
+
+        // return;
+        const strategy = this.overlay
+            .position()
+            .flexibleConnectedTo(this.webglEl.nativeElement).withPositions([{
+                originX: 'start',
+                originY: 'top',
+                overlayX: 'start',
+                overlayY: 'top'
+            }]);
+
+        const overlayRef = this.overlay.create({
+            positionStrategy: strategy,
+            height: '100%',
+            width: '100%'
+            // hasBackdrop: true,
+            // backdropClass: 'opacitybackdrop'
+        });
+
+        // overlayRef.backdropClick().subscribe(() => {
+        //     overlayRef.dispose();
+        // });
+
+        overlayRef.overlayElement.addEventListener('click', () => {
+            // this.autoAroundPoint();
+            overlayRef.dispose();
+        });
+
+        const optionElement = new TemplatePortal(this.warringTemplate, this.viewContainerRef);
+
+        overlayRef.attach(optionElement);
+    }
+
     ngAfterViewInit() {
 
         let globalContainer = this.viewContainerRef.element.nativeElement.querySelector('.global-conatiner');
+
         setTimeout(() => {
             this.openFeatureOverlay();
-        }, 3000);
-
-        setTimeout(() => {
-
             var width = globalContainer.clientWidth,
                 height = globalContainer.clientHeight;
 
             this.renderer = new THREE.WebGLRenderer();
             this.renderer.setSize(width, height);
             this.renderer.setPixelRatio(window.devicePixelRatio);
-            // this.renderer.setClearColor( 0xffffff, 1 );
+
             globalContainer.appendChild(this.renderer.domElement);
 
             this.scene = new THREE.Scene();
             this.scene.add(new THREE.AmbientLight(0xbbbbbb, 0.3));
 
             let directionLight = new THREE.DirectionalLight(0xffffff);
+            this.sunlight = directionLight;
             this.scene.add(directionLight);
 
             directionLight.position.z = Math.PI / 2;
 
             this.utility.createEarth().subscribe((globe) => {
 
+                if (this.mode == 'sphere')
+                    this.globe = globe;
+                else
+                    this.globe = this.scene;
+
                 this.scene.add(globe);
-
-                // Array.from({ length: 1 }).forEach(() => {
-                //     // this.drawCubicBezierCurve3([(Math.random() - 0.5) * 180, (Math.random() - 0.5) * 360], [121.226181, 25.0169638])
-                //     let fromPoint = this.utility.generateDymicalPoint();
-                //     let endPoint = this.utility.generateDymicalPoint();
-                //     let qq = this.utility.drawCurveLine(fromPoint, endPoint, this.scene);
-                //     let qc = this.utility.drawPoint(fromPoint);
-
-                //     this.scene.add(qq);
-                //     this.scene.add(qc);
-                //     this.scene.add(this.utility.drawPoint(endPoint));
-                // });
 
                 // Setup camera
                 this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
 
-                this.camera.position.z = 200;
-                var helper = new THREE.CameraHelper(this.camera);
+                this.camera.position.z = 300;
 
+                // Setup cameral control.
                 this.control = new TrackballControls(this.camera, globalContainer);
                 this.control.zoomSpeed = 0.5;
                 this.control.rotateSpeed = 0.5;
                 this.control.panSpeed = 0.1;
+                this.control.noPan = this.mode == 'sphere' ? true : false;
+                this.control.minDistance = this.mode == 'sphere' ? 120 : 10;
+                this.control.maxDistance = 300;
 
-
-                let pointArr = [
-                    [121.5417977, 25.0601717],
-                    [139.6007829, 35.6681625],
-                    [-74.2598661, 40.6971494],
-                    [-0.2416812, 51.5285582],
-                    [120.9162945, 31.2231338]
-                ];
-
-                pointArr.forEach(o => {
-                    let dyPoint = this.utility.generateDynamicPoint();
-                    this.scene.add(this.utility.drawPoint(o));
-                    this.scene.add(this.utility.drawPoint(dyPoint));
-                    this.scene.add(this.utility.drawCurveLine(dyPoint, o));
-                });
-
-                // this.autoAroundPoint(pointArr);
-
+                this.earthReady = true;
+                this.generateVisualization();
+                // The data update!
                 this.enableControl = true;
-                this.status = new status();
 
-                document.body.appendChild(this.status.dom);
+                this.scene.add(this.utility.createStars(300, 32));
+
+                if (this.mode == 'sphere')
+                    this.scene.add(this.utility.createAtmosphere());
 
                 this.play();
             });
 
-        });
+            let raycaster = new THREE.Raycaster();
 
+            ['click', 'touchend'].forEach(listenEvent => {
+                this.renderer.domElement.addEventListener(listenEvent, (event) => {
+                    let mouse = new THREE.Vector2();
+
+                    mouse.x = (event.offsetX / this.renderer.domElement.clientWidth) * 2 - 1;
+                    mouse.y = - (event.offsetY / this.renderer.domElement.clientHeight) * 2 + 1;
+
+                    raycaster.setFromCamera(mouse, this.camera);
+                    let intersects = raycaster.intersectObjects(this.scene.children, true);
+
+                    console.log(intersects)
+
+                    intersects.forEach(mesh => {
+                        if (mesh.object.userData) {
+                            // console.log(mesh.object.userData instanceof FlowBase, mesh.object.userData)
+                            if (mesh.object.userData.hasOwnProperty('fromLocation')) {
+                                this.focusCounty = mesh.object.userData as FlowBase;
+                                this.showDetail();
+                            }
+                        }
+                    });
+
+                })
+            })
+
+
+        });
 
     }
 
-    autoAroundPoint(arr) {
+    detailOverlay;
+    stopRender = false;
+    earthChange = false;
+
+    changeEarth() {
+        this.ngOnDestroy();
+
+        setTimeout(() => {
+            this.mode = this.mode == 'plane' ? 'sphere' : 'plane';
+
+            this.utility = new EarthManagement(this.http, this.mode);
+            this.stopRender = false;
+
+            this.flowDatas = this.flowService.getFlowDatas();
+            this.ngAfterViewInit();
+        }, 100);
+    }
+
+    triggerDataUpdate() {
+        this.flowService.generateData(Math.ceil(Math.random() * 50));
+    }
+
+    showDetail() {
+
+        if (this.detailOverlay && this.detailOverlay.hasAttached()) {
+            return;
+        }
+
+        const strategy = this.overlay
+            .position()
+            .flexibleConnectedTo(this.webglEl.nativeElement).withPositions([{
+                originX: 'start',
+                originY: 'bottom',
+                overlayX: 'start',
+                overlayY: 'bottom'
+            }]);
+
+        this.detailOverlay = this.overlay.create({
+            positionStrategy: strategy,
+            // hasBackdrop: true,
+            // backdropClass: 'opacitybackdrop'
+        });
+
+        // overlayRef.backdropClick().subscribe(() => {
+        //     overlayRef.dispose();
+        // });
+
+        this.detailOverlay.overlayElement.addEventListener('click', () => {
+            // this.autoAroundPoint();
+            this.detailOverlay.detach();
+            this.detailOverlay.dispose();
+        });
+
+        const optionElement = new TemplatePortal(this.countyDetail, this.viewContainerRef);
+
+        this.detailOverlay.attach(optionElement);
+    }
+
+    removePoint(flow: FlowBase) {
+
+        this.globe.remove(flow.extraData.fromPointMesh);
+        this.globe.remove(flow.extraData.destPointMesh);
+        this.globe.remove(flow.extraData.curveLineMesh.mesh);
+
+        this.utility.removePoint(flow.extraData.fromPointMesh);
+        this.utility.removePoint(flow.extraData.destPointMesh);
+        this.utility.removeCurveLine(flow.extraData.curveLineMesh);
+    }
+
+    clearAllLine() {
+        this.flowDatas.forEach(o => {
+            this.removePoint(o);
+        });
+        this.flowDatas = [];
+    }
+
+    generateVisualization(datas?) {
+        datas = datas || this.flowDatas;
+
+        datas.forEach(o => {
+
+            o.extraData = new FlowVisualizationMesh();
+
+            let fromPoint = this.utility.drawPoint(o.fromLocation.getCoordinate());
+            fromPoint.userData = Object.assign({}, o);
+
+            o.extraData.fromPointMesh = fromPoint;
+
+            let destPoint = this.utility.drawPoint(o.destLocation.getCoordinate());
+            destPoint.userData = Object.assign({}, o);
+
+            o.extraData.destPointMesh = destPoint;
+
+            let curve = this.utility.drawCurveLine(o.fromLocation.getCoordinate(), o.destLocation.getCoordinate())
+
+            o.extraData.curveLineMesh = curve;
+
+            this.globe.add(fromPoint);
+            this.globe.add(destPoint);
+            this.scene.add(curve.mesh);
+            this.scene.add(this.utility.drawColumn(o.fromLocation.getCoordinate()));
+            this.scene.add(this.utility.drawColumn(o.destLocation.getCoordinate()));
+        });
+
+    }
+
+    generateTestFlow() {
+        this.http.get('/assets/ne_50m_populated_places_simple.geojson').subscribe((result: any) => {
+
+            Array.from({ length: 50 }).forEach(() => {
+
+                let pointfrom = result.features[Math.floor(Math.random() * result.features.length)];
+                let pointdest = result.features[Math.floor(Math.random() * result.features.length)];
+                let flow = new FlowVisualizationMesh();
+
+                // The from and dest are same, pass this data.
+                if (pointfrom.properties.name == pointdest.properties.name)
+                    return;
+
+                flow.flow = Math.ceil(Math.random() * 100000);
+                flow.fromLocation = this.convertGeoToLocationPoint(pointfrom);
+                flow.destLocation = this.convertGeoToLocationPoint(pointdest);
+
+                this.flowDatas.push(flow);
+            });
+
+            this.flowDatas.forEach(o => {
+                o.extraData = new FlowVisualizationMesh();
+
+                let fromPoint = this.utility.drawPoint(o.fromLocation.getCoordinate());
+                fromPoint.userData = Object.assign({}, o);
+
+                o.extraData.fromPointMesh = fromPoint;
+
+                let destPoint = this.utility.drawPoint(o.destLocation.getCoordinate());
+                destPoint.userData = Object.assign({}, o);
+
+                o.extraData.destPointMesh = destPoint;
+
+                let curve = this.utility.drawCurveLine(o.fromLocation.getCoordinate(), o.destLocation.getCoordinate())
+
+                o.extraData.curveLineMesh = curve;
+
+                this.scene.add(fromPoint);
+                this.scene.add(destPoint);
+                this.scene.add(curve.mesh);
+            });
+
+        });
+    }
+
+    autoAroundPoint(isFrom: boolean, arr?) {
+
+        // disable auto rotation.
+        this.enableAutoRotation = false;
+
+        if (!arr) {
+            arr = this.flowDatas.map(o => {
+                if (isFrom)
+                    return o.fromLocation.getCoordinate();
+                return o.destLocation.getCoordinate();
+            });
+        }
+
         if (arr.length === 0)
-            return
+            return;
+
+        // Play tween to rotation to zero.
+        if (this.globe.rotation.y !== 0) {
+            let tween = new TWEEN.Tween({ rotation: this.globe.rotation.y });
+            tween.to({ rotation: 0 }, 200)
+                .onUpdate(o => {
+                    this.globe.rotation.y = o.rotation;
+                })
+                .onComplete(() => {
+                    this.utility.foucsCameraToPoint(arr.shift(), this.camera, this.control).subscribe(() => {
+                        this.autoAroundPoint(isFrom, arr);
+                    });
+                })
+                .start();
+            return;
+        }
+
         this.utility.foucsCameraToPoint(arr.shift(), this.camera, this.control).subscribe(() => {
-            this.autoAroundPoint(arr);
+            this.autoAroundPoint(isFrom, arr);
         });
     }
 
     t = 0;
 
     play = () => {
+
+        if (this.stopRender) {
+
+            this.scene.remove.apply(this.scene, this.scene.children);
+            this.utility.dispose();
+            this.scene.dispose();
+            this.control.dispose();
+            this.renderer.domElement.remove();
+            this.renderer.dispose();
+            this.flowDatas = [];
+            this.enableAutoRotation = false;
+            console.log('clear scene', this.scene)
+
+            return;
+        }
+
+        // The earth circle is 0 ~ 2π 
+        if (this.mode != 'plane' && this.enableAutoRotation) {
+            this.globe.rotation.y += 0.001;
+        }
+
+        TWEEN.update();
+
         requestAnimationFrame(this.play);
         // this.scene.rotation.y += 0.001;
         if (this.enableControl)
             this.control.update();
+
         this.renderer.render(this.scene, this.camera);
-        this.status.update();
-        // this.movingSphere.forEach(o => {
-        //     // let t = this.clock.getElapsedTime() * 1000 / 5000;
-        //     var pt = o.curve.getPoints(this.t);
-        //     // console.log(pt)
-        //     o.sphere.position.set(pt.x, pt.y, pt.z);
-        //     // debugger;
-        //     // console.log('cc')
-        // });
-        // console.log(this.camera)
+
     }
 
-    movingSphere = [];
+    statusUpdate = () => {
+        requestAnimationFrame(this.statusUpdate);
+        this.status.update();
+    }
 
+
+    movingSphere = [];
     maxDarwCount = 10;
     currentDrawCount = 0;
     drawPueue = [];
-
-
-    drawCubicBezierCurve3(startPnt?, endPnt?) {
-        this.currentDrawCount++;
-
-        // Over max draw count.
-        if (this.currentDrawCount > this.maxDarwCount) {
-            // Wait next process to draw.
-            this.drawPueue.push({
-                start: startPnt,
-                end: endPnt
-            });
-            this.currentDrawCount--;
-            return;
-        }
-
-        // console.log(this.currentDrawCount, this.drawPueue)
-
-        if (!startPnt && this.drawPueue.length === 0)
-            return;
-
-        if (!startPnt) {
-            let t = this.drawPueue.shift();
-            startPnt = t.start;
-            endPnt = t.end;
-        }
-
-        this.HandeldrawCubicBezierCurve3(startPnt, endPnt);
-    }
-
-    HandeldrawCubicBezierCurve3(startPnt, endPnt) {
-
-        let curves = [startPnt];
-        // the three-globe default value.
-        let altAutoScale = 0.5
-        let altitude = geoDistance(startPnt as [number, number], endPnt as [number, number]) / 2 * altAutoScale;
-
-        const fff = geoInterpolate(startPnt, endPnt);
-
-        Array.from([0.25, 0.75]).forEach((o) => {
-            // console.log(o, 'loop')
-            let c = fff(o);
-            // console.log(c)
-            c.push(altitude * 1.5);
-            curves.push(c);
-            // console.log(this.polar2Cartesian(...c));
-        });
-
-        curves.push(endPnt);
-
-        let fg = curves.map(o => {
-            return this.utility.convertToSphereCoords(o[1], o[0], o[2]);
-        });
-
-        var curve = new CubicBezierCurve3(fg[0], fg[1], fg[2], fg[3]);
-
-        const path = new THREE.Geometry();
-        const geometry = path.setFromPoints(curve.getPoints(100));
-
-
-        let curvePieces = curve.getPoints(100);
-
-        const pathtest = new THREE.Geometry();
-        let testPieces = curvePieces.slice(30, 40);
-        const testGeometry = pathtest.setFromPoints(testPieces);
-
-        var linetest = new MeshLine();
-        linetest.setGeometry(testGeometry);
-        var resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
-        var texture = new THREE.TextureLoader().load('/assets/images/stroke.png');
-
-        var materialtest = new MeshLineMaterial({
-            map: texture,
-            useMap: true,
-            color: new THREE.Color(0x0000ff),
-            opacity: 1,
-            resolution: resolution,
-            sizeAttenuation: 1,
-            lineWidth: 1,
-            near: 1,
-            far: 100000,
-            depthTest: false,
-            blending: THREE.AdditiveBlending,
-            transparent: false,
-            side: THREE.DoubleSide
-        });
-
-        var testcurveObject = new THREE.Mesh(linetest.geometry, materialtest);
-        this.scene.add(testcurveObject)
-        // console.log(curve.getPoints(200));
-
-        // const geometry = path.createPointsGeometry(100);
-
-        // var points = curve.getPoints(50);
-        // var geometry = new THREE.BufferGeometry().setFromPoints(points);
-        // var geometry = new THREE.Geometry();
-        // geometry.vertices = curve.getPoints(100);
-        // Create the final object to add to the scene
-        // var curveObject = new MeshLine(geometry, material);
-        var line = new MeshLine();
-        line.setGeometry(geometry);
-        // line.setGeometry(geometry, function (p) { return 2; }); // makes width 2 * lineWidth
-
-
-        var material = new MeshLineMaterial({
-            color: new THREE.Color(0xffffff),
-            opacity: 0.3,
-            resolution: resolution,
-            sizeAttenuation: 1,
-            lineWidth: 0.3,
-            near: 1,
-            far: 100000,
-            depthTest: false,
-            blending: THREE.AdditiveBlending,
-            transparent: false,
-            side: THREE.DoubleSide
-        });
-
-
-        let group = new THREE.Group();
-        // group.add(curveObject);
-
-        var geometry1 = new THREE.SphereGeometry(1, 32, 32);
-        var material1 = new THREE.MeshBasicMaterial({
-            color: 0xff0000,
-            opacity: 0.6,
-            wireframe: true
-        });
-
-        var sphere = new THREE.Mesh(geometry1, material1);
-        sphere.position.copy(fg[0]);
-        // sphere.rotation.x = -Math.PI / 2;
-        group.add(sphere);
-
-        this.movingSphere.push({
-            sphere: sphere,
-            curve: curve
-        });
-
-        var tween = new TWEEN.Tween({ x: fg[0].x, y: fg[0].y, z: fg[0].z });
-        tween.to({
-            x: fg[3].x,
-            y: fg[3].y,
-            z: fg[3].z
-        }, 1000);
-
-        tween.start();
-        tween.repeat(Infinity);
-        let t = 0;
-        tween.onUpdate(function () {
-            // console.log(object);
-            var pt = curve.getPoint(t);
-            sphere.position.copy(pt);
-            let speed = 0.01 + Math.random() / 50;
-            t = (t >= 1) ? 0 : t += speed;
-            // linetest.setGeometry(pathtest.setFromPoints(curvePieces.slice(30 + t * 10, 50 + t * 10)));
-        });
-
-
-        // console.log(curveObject, line, geometry.vertices.length)
-        this.scene.add(group);
-
-        setTimeout(() => {
-            this.currentDrawCount--;
-            this.drawCubicBezierCurve3();
-        }, 200);
-
-        return group;
-    }
-
-    createStars(radius, segments) {
-        return new THREE.Mesh(
-            new THREE.SphereGeometry(radius, segments, segments),
-            new THREE.MeshBasicMaterial({
-                map: THREE.ImageUtils.loadTexture('/assets/images/galaxy_starfield.png'),
-                side: THREE.BackSide
-            })
-        );
-    }
 
 
 }

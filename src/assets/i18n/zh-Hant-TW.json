@@ -11,5 +11,16 @@
     "setting": "設定",
     "interface": "介面",
     "flow": "流量",
-    "group": "群組"
+    "group": "群組",
+    "aroundsource": "循序訪問IP來源點",
+    "arounddest": "循序訪問IP目標點",
+    "changmode": "2D/3D",
+    "autorotation": "自動旋轉",
+    "openflowlist": "開啟封包流清單",
+    "addflowinfo": "新增流量資訊",
+    "clearallflow": "清除所有資訊",
+    "source": "來源",
+    "target": "目標",
+    "destination": "目的地",
+    "alerttips": "顯示警告"
 }

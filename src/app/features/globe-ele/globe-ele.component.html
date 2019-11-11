@@ -3,9 +3,81 @@
 </div>
 
 <ng-template #features>
-    <div>
-        <button mat-mini-fab>
-            <mat-icon>TEST</mat-icon>
-        </button>
+    <mat-list role="list" class="globe-feature-wrap">
+        <mat-list-item class="center" role="listitem" (click)="autoAroundPoint(true)">{{'aroundsource' | translate}}
+        </mat-list-item>
+        <mat-list-item class="center" role="listitem" (click)="autoAroundPoint()">{{'arounddest' | translate}}
+        </mat-list-item>
+        <mat-list-item class="center" role="listitem" (click)="changeEarth()">{{'changmode' | translate}}
+        </mat-list-item>
+        <mat-list-item class="center" role="listitem" (click)="enableAutoRotation=!enableAutoRotation;">
+            {{'autorotation' | translate}}</mat-list-item>
+        <mat-list-item class="center" role="listitem" (click)="openFlowOverlay()">{{'openflowlist' | translate}}
+        </mat-list-item>
+        <mat-list-item class="center" role="listitem" (click)="flowService.addDymicalFlow()">
+            {{'addflowinfo' | translate}}</mat-list-item>
+        <mat-list-item class="center" role="listitem" (click)="clearAllLine()">{{'clearallflow' | translate}}
+        </mat-list-item>
+        <mat-list-item class="center" role="listitem" (click)="toggleAlertOverlay()">{{'alerttips' | translate}}
+        </mat-list-item>
+    </mat-list>
+</ng-template>
+
+<ng-template #countyDetail>
+    <mat-list role="list" class="globe-feature-wrap">
+        <mat-list-item
+            (click)="autoAroundPoint(false,[[focusCounty.fromLocation.longitude,focusCounty.fromLocation.latitude]])">
+            <h3 matLine> {{ 'source' | translate }} :<button mat-raised-button color="primary">Go</button> </h3>
+            <p matLine>
+                <span> {{focusCounty.fromLocation.county}} </span>
+                <span> [{{focusCounty.fromLocation.longitude}},{{focusCounty.fromLocation.latitude}}] </span>
+            </p>
+        </mat-list-item>
+        <mat-list-item
+            (click)="autoAroundPoint(false,[[focusCounty.destLocation.longitude,focusCounty.destLocation.latitude]])">
+            <h3 matLine> {{ 'target' | translate }} :<button mat-raised-button color="primary">Go</button> </h3>
+            <p matLine>
+                <span> {{focusCounty.destLocation.county}} </span>
+                <span> [{{focusCounty.destLocation.longitude}},{{focusCounty.destLocation.latitude}}] </span>
+            </p>
+        </mat-list-item>
+        <mat-list-item>
+            <button mat-raised-button (click)="removePoint(focusCounty)">DELETE FROM Point</button>
+        </mat-list-item>
+        <mat-list-item>
+            <h3 matLine> {{ 'flow' | translate }} </h3>
+            <p matLine>
+                <span> {{focusCounty.flow}} </span>
+            </p>
+        </mat-list-item>
+    </mat-list>
+</ng-template>
+
+<ng-template #flowList>
+    <mat-list role="list" class="globe-feature-wrap flow-content">
+        <mat-list-item *ngFor="let flow of flowDatas">
+            <p matLine (click)="autoAroundPoint(false,[[flow.fromLocation.longitude,flow.fromLocation.latitude]])">
+                {{ 'source' | translate }}: {{flow.fromLocation.county}} </p>
+            <p matLine (click)="autoAroundPoint(false,[[flow.destLocation.longitude,flow.destLocation.latitude]])">
+                {{ 'destination' | translate }}: {{flow.destLocation.county}} </p>
+        </mat-list-item>
+    </mat-list>
+</ng-template>
+
+<ng-template #addNewFlow>
+    <mat-list role="list" class="globe-feature-wrap flow-content">
+        <mat-list-item *ngFor="let flow of flowDatas">
+            <div matLine><input type="text" placeholder=""></div>
+            <div matLine><input type="text" placeholder=""></div>
+            <div matLine><input type="text" placeholder=""></div>
+        </mat-list-item>
+    </mat-list>
+</ng-template>
+
+<ng-template #warringTemplate>
+    <div class="warring-container">
+        <div>
+            Find attack!
+        </div>
     </div>
 </ng-template>
