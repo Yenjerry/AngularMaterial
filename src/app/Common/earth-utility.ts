@@ -6,6 +6,7 @@ import { geoDistance, geoInterpolate } from 'd3-geo';
 import { CubicBezierCurve3, Vector3, Mesh, AdditiveBlending } from 'three';
 import TWEEN from '@tweenjs/tween.js';
 import { ResourceTracker } from './resource-tracker';
+import Earcut from "earcut";
 
 const Shaders = {
     'earth': {
@@ -131,6 +132,7 @@ export class EarthManagement {
                         cloud.rotation.x = Math.PI / 2;
                         group.add(sphere);
                         group.add(cloud);
+                        group.add(this.createAtmosphere());
                     // break;
                     case 'sphereline':
                         group.rotation.x = -Math.PI / 2;
@@ -138,17 +140,32 @@ export class EarthManagement {
                         break;
                 }
 
-                // Draw area range.
-                this.drawThreeGeo(result[0], this.radius, this.mode, {
-                    color: 0x489e77,
-                    // skinning: true
-                }, group);
+                console.log(result[1])
 
-                // Draw taiwan area range.
-                this.drawThreeGeo(result[1], this.radius, this.mode, {
-                    color: 0x489e77,
-                    // skinning: true
-                }, group);
+                // Draw taiwan detail county
+                result[0].features.forEach((o, i) => {
+                    group.add(this.createCounty(o));
+                });
+
+                // Draw globa area exclude taiwan
+                result[1].features.forEach((o, i) => {
+
+                    if (o.properties.sovereignt == 'Taiwan')
+                        return true;
+                    group.add(this.createCounty(o));
+                });
+
+                // // Draw taiwan area range.
+                // this.drawThreeGeo(result[0], this.radius, this.mode, {
+                //     color: 0x489e77,
+                //     // skinning: true
+                // }, group);
+
+                // Draw globa area range.
+                // this.drawThreeGeo(result[1], this.radius, this.mode, {
+                //     color: 0x489e77,
+                //     // skinning: true
+                // }, group);
 
                 let earth;
                 if (this.mode == 'plane')
@@ -164,6 +181,134 @@ export class EarthManagement {
         });
 
         return observable;
+    }
+
+    /**
+     * Create mesh by geojson county data.
+     */
+    createCounty(countyFeature) {
+        let
+            totalCoordinates = countyFeature.geometry.coordinates,
+            mesh;
+
+        if (countyFeature.geometry.type == 'MultiPolygon') {
+            let group = new THREE.Group();
+            mesh = group;
+            let color = this.getRandomColor();
+
+            totalCoordinates.forEach((areaCoordinates) => {
+
+                areaCoordinates.forEach(coords => {
+
+                    let sphereCoords = this.convertGeoJSONCoordinateToPlane(coords),
+                        positionCoords = this.convertGeoJSONCoordinateToSphere(coords);
+
+                    let m;
+                    if (this.mode == 'plane')
+                        m = this.generateCountyMesh([sphereCoords], [sphereCoords], color);
+                    else if (countyFeature.properties.sovereignt == 'Russia')
+                        m = this.generateCountyMesh([positionCoords], [positionCoords], color);
+                    else
+                        m = this.generateCountyMesh([sphereCoords], [positionCoords], color);
+
+                    m.userData = countyFeature;
+                    group.add(m);
+                });
+
+            });
+        }
+        else {
+
+            let sphereCoords = [],
+                positionCoords = [];
+            totalCoordinates.forEach(coords => {
+
+                let sCoords = this.convertGeoJSONCoordinateToPlane(coords),
+                    pCoords = this.convertGeoJSONCoordinateToSphere(coords);
+
+                sphereCoords.push(sCoords);
+                positionCoords.push(pCoords);
+            });
+
+            if (this.mode == 'plane')
+                mesh = this.generateCountyMesh(sphereCoords, sphereCoords);
+            else
+                mesh = this.generateCountyMesh(sphereCoords, positionCoords);
+
+        }
+
+        mesh.userData = countyFeature.properties;
+
+        // The sphere mode need rotation the mesh object to match image.
+        if (this.mode != 'plane') {
+            // mesh.rotation.x = Math.PI / 2;
+            // mesh.rotation.y = Math.PI / 2;
+        }
+        else {
+            mesh.rotation.x = Math.PI;
+            mesh.rotation.z = -Math.PI / 2;
+        }
+
+        return mesh;
+    }
+
+    private convertGeoJSONCoordinateToPlane(coordinates) {
+        return coordinates.map(coor => {
+            let sphereCoordinate = this.convertToPlaneCoords([coor[0], coor[1]], this.radius);
+            sphereCoordinate.push(0);
+
+            return sphereCoordinate;
+        });
+    }
+
+    private convertGeoJSONCoordinateToSphere(coordinates) {
+        return coordinates.map((coor) => {
+            let sphereCoordinate = this.convertToSphereCoords(coor[0], coor[1]);
+
+            return [sphereCoordinate.x, sphereCoordinate.y, sphereCoordinate.z];
+        })
+    }
+
+    /**
+     * Use geoJson county feature coordinats to generate mesh.
+     * @param shapeCoordinates the county coordinates in plane.
+     * @param positionCoordinates the county draw place coordinates.
+     * @param color the county mesh color.
+     */
+    private generateCountyMesh(shapeCoordinates, positionCoordinates, color?) {
+
+        let shapeData = Earcut.flatten(shapeCoordinates);
+        let shapeTriangles = Earcut(shapeData.vertices, shapeData.holes, shapeData.dimensions);
+
+        // This is for test the triangles is correct, if  value infinity approaches zero or zero, then the answer is correct.
+        let deviation = Earcut.deviation(shapeData.vertices, shapeData.holes, shapeData.dimensions, shapeTriangles);
+
+        color = color || this.getRandomColor();
+        let positionData = Earcut.flatten(positionCoordinates);
+        // let triangles = Earcut(positionData.vertices, positionData.holes, positionData.dimensions);
+
+        let geometry = new THREE.BufferGeometry();
+        // Create veritices array
+        let vertices = new Float32Array(positionData.vertices);
+        // Create attribute buffer object
+        let attribue = new THREE.BufferAttribute(vertices, 3); // 
+        // Set geometry attributes position property
+        geometry.attributes.position = attribue;
+
+        let indexes = new Uint16Array(shapeTriangles)
+        geometry.index = new THREE.BufferAttribute(indexes, 1);
+        // Not execute computeVertexNormals, because we don't has face UV.
+        // geometry.computeVertexNormals();
+
+        let material = new THREE.MeshLambertMaterial({
+            color: color,
+            side: THREE.DoubleSide, // two face can see.
+            // wireframe: true
+            // opacity: 0,
+            // transparent: true
+        });
+
+        return new THREE.Mesh(geometry, material);
     }
 
     /**
@@ -212,33 +357,6 @@ export class EarthManagement {
     drawColumn(point, columnHeight = 5, columnWidth = 0.25, columnDepth = 0.25) {
 
         let position;
-        // const geometry = this.resourceTracker.track(new THREE.BoxGeometry(columnWidth, columnDepth, columnHeight, 1, 1, columnHeight / 2));
-
-
-        // const colors = ['blue', 'green']
-        // let faceCount = 0;
-        // console.log(geometry)
-        // geometry.faces.forEach((face, i) => {
-        //     faceCount = Math.floor(i / columnHeight);
-        //     switch (faceCount) {
-        //         case 0:
-        //         case 3:
-        //             face.color.set(colors[Math.floor((i - faceCount * columnHeight) / (columnHeight / colors.length))]);
-        //             break;
-        //         case 1:
-        //         case 2:
-        //             face.color.set(colors[Math.abs(Math.floor((i - faceCount * columnHeight) / (columnHeight / colors.length)) - (colors.length - 1))]);
-        //             break;
-        //     }
-        // });
-
-        // geometry.faces[geometry.faces.length - 1].color.set(colors[colors.length - 1]);
-        // geometry.faces[geometry.faces.length - 2].color.set(colors[colors.length - 1]);
-
-        // const material = new THREE.MeshBasicMaterial({ vertexColors: THREE.FaceColors });
-
-        // // const material = this.resourceTracker.track(new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
-        // const cube = this.resourceTracker.track(new THREE.Mesh(geometry, material));
         const cube = this.makeGradientCube(0x0000ff, 0x0000ff, columnWidth, columnHeight, columnDepth, 1);
 
         if (this.mode == 'plane') {
@@ -254,24 +372,30 @@ export class EarthManagement {
         // Mesh look at sphere center.
         if (this.mode == 'sphere') {
             cube.lookAt(0, 0, 0);
-            // cube.rotation.x *= 2;
         }
-
-        console.log(cube)
 
         return cube;
     }
 
+    /**
+     * Generate cube with gradinet color.
+     * @param c1 color 1 for gradient start.
+     * @param c2 color 2 for gradient end.
+     * @param w the cube width.
+     * @param d the cube depth.
+     * @param h the cube height.
+     * @param opacity the cube opacity.
+     */
     makeGradientCube(c1, c2, w, d, h, opacity) {
         if (typeof opacity === 'undefined') opacity = 1.0;
         if (typeof c1 === 'number') c1 = new THREE.Color(c1);
         if (typeof c2 === 'number') c2 = new THREE.Color(c2);
 
-        var cubeGeometry = new THREE.BoxGeometry(w, h, d);
+        let cubeGeometry = this.resourceTracker.track(new THREE.BoxGeometry(w, h, d));
 
-        var cubeMaterial = new THREE.MeshPhongMaterial({
+        let cubeMaterial = this.resourceTracker.track(new THREE.MeshPhongMaterial({
             vertexColors: THREE.VertexColors
-        });
+        }));
 
         if (opacity < 1.0) {
             cubeMaterial.opacity = opacity;
@@ -285,7 +409,7 @@ export class EarthManagement {
         // 8 / 9 is one side
         // 10 / 11 is the other side
 
-        for (var ix = 0; ix < 12; ++ix) {
+        for (let ix = 0; ix < 12; ++ix) {
             switch (ix) {
                 case 8: case 9:
                     cubeGeometry.faces[ix].vertexColors = [c2, c2, c2];
@@ -314,7 +438,7 @@ export class EarthManagement {
             }
         }
 
-        return new THREE.Mesh(cubeGeometry, cubeMaterial);
+        return this.resourceTracker.track(new THREE.Mesh(cubeGeometry, cubeMaterial));
     }
 
     /**
@@ -353,7 +477,7 @@ export class EarthManagement {
             // far: 100000,
             // depthTest: false,
             blending: THREE.AdditiveBlending,
-            transparent: false,
+            transparent: true,
             side: THREE.DoubleSide
         }, materialConfig)
 
@@ -523,7 +647,7 @@ export class EarthManagement {
      * Fetch Geojson data.
      */
     fetchGeojson(): Observable<any[]> {
-        let response1 = this.http.get('/assets/twCounty2010.geo.json');
+        let response1 = this.http.get('/assets/tw.json');
         let response2 = this.http.get('/assets/custom.geo.json');
 
         return forkJoin([response1, response2]);
@@ -545,17 +669,15 @@ export class EarthManagement {
      * Convert longtitude/latitude to shpere coordinate.
      * @param longtitude
      * @param latitude
-     * @param altidute  
+     * @param altidute 
      */
-    convertToSphereCoords(longtitude, latitude, altidute?) {
-        var relAltitude = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
-        var phi = (90 - latitude) * Math.PI / 180;
-        var theta = (90 - longtitude) * Math.PI / 180;
-        var r = this.radius * (1 + relAltitude);
+    convertToSphereCoords(longtitude, latitude, altidute = 0) {
+
+        let r = this.radius * (1 + altidute);
         return new THREE.Vector3(
-            r * Math.sin(phi) * Math.cos(theta),
-            r * Math.cos(phi),
-            r * Math.sin(phi) * Math.sin(theta)
+            Math.cos(latitude * Math.PI / 180) * Math.cos(longtitude * Math.PI / 180) * r,
+            Math.cos(latitude * Math.PI / 180) * Math.sin(longtitude * Math.PI / 180) * r,
+            Math.sin(latitude * Math.PI / 180) * r
         );
     }
 
@@ -567,7 +689,7 @@ export class EarthManagement {
     }
 
     /**
-     * 
+     * Control three.js camera focus to specified coordinate with animate.
      * @param targerPoint [number, number], the first number is represented longitude, second is represented latitude.
      * @param camera {THREE.Camera}, the camera for control.
      * @param control {TrackballControls}, if mode is plane then this parameter is required.
@@ -584,6 +706,20 @@ export class EarthManagement {
                 return this.foucsCameraToSpherePoint(targerPoint, camera);
         }
     }
+
+    /**
+     * Dynamic generate color.
+     */
+    getRandomColor() {
+        let letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+
+    // ############### Private function area ###############
 
     /**
      * The camera move to specified coordinate animate whit shpere earth.
@@ -777,11 +913,13 @@ export class EarthManagement {
 
             } else if (json_geom[geom_num].type == 'Polygon') {
                 for (let segment_num = 0; segment_num < json_geom[geom_num].coordinates.length; segment_num++) {
+
                     coordinate_array = createCoordinateArray(json_geom[geom_num].coordinates[segment_num]);
 
                     for (let point_num = 0; point_num < coordinate_array.length; point_num++) {
                         convertCoordinates(coordinate_array[point_num], radius);
                     }
+                    Earcut
                     drawLine(x_values, y_values, z_values, materalOptions);
                 }
 

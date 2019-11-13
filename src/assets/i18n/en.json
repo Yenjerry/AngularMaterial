@@ -22,5 +22,6 @@
     "source": "Source",
     "target": "Target",
     "destination" :"Destination",
-    "alerttips": "Show alert"
+    "alerttips": "Show alert",
+    "gotaipei":"Move to Taipei"
 }

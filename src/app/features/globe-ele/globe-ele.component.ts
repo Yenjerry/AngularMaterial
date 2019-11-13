@@ -33,7 +33,6 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
     control;
     renderer;
     scene;
-    sunlight;
     camera;
     clock = new Clock();
     data;
@@ -204,13 +203,25 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
             globalContainer.appendChild(this.renderer.domElement);
 
             this.scene = new THREE.Scene();
-            this.scene.add(new THREE.AmbientLight(0xbbbbbb, 0.3));
+            this.scene.add(new THREE.AmbientLight(0xbbbbbb, 1));
 
-            let directionLight = new THREE.DirectionalLight(0xffffff);
-            this.sunlight = directionLight;
+            let directionLight = new THREE.DirectionalLight(0xffffff, 0.75);
             this.scene.add(directionLight);
 
             directionLight.position.z = Math.PI / 2;
+
+            // Setup camera
+            this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000000);
+            this.camera.position.z = 300;
+
+            // Setup cameral control.
+            this.control = new TrackballControls(this.camera, globalContainer);
+            this.control.zoomSpeed = 0.5;
+            this.control.rotateSpeed = 0.5;
+            this.control.panSpeed = 0.1;
+            this.control.noPan = this.mode == 'sphere' ? true : false;
+            // this.control.minDistance = this.mode == 'sphere' ? 120 : 1;
+            // this.control.maxDistance = 300;
 
             this.utility.createEarth().subscribe((globe) => {
 
@@ -221,20 +232,6 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
 
                 this.scene.add(globe);
 
-                // Setup camera
-                this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-
-                this.camera.position.z = 300;
-
-                // Setup cameral control.
-                this.control = new TrackballControls(this.camera, globalContainer);
-                this.control.zoomSpeed = 0.5;
-                this.control.rotateSpeed = 0.5;
-                this.control.panSpeed = 0.1;
-                this.control.noPan = this.mode == 'sphere' ? true : false;
-                this.control.minDistance = this.mode == 'sphere' ? 120 : 10;
-                this.control.maxDistance = 300;
-
                 this.earthReady = true;
                 this.generateVisualization();
                 // The data update!
@@ -242,10 +239,8 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
 
                 this.scene.add(this.utility.createStars(300, 32));
 
-                if (this.mode == 'sphere')
-                    this.scene.add(this.utility.createAtmosphere());
-
                 this.play();
+
             });
 
             let raycaster = new THREE.Raycaster();
@@ -274,7 +269,6 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
 
                 })
             })
-
 
         });
 
@@ -379,9 +373,9 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
 
             this.globe.add(fromPoint);
             this.globe.add(destPoint);
-            this.scene.add(curve.mesh);
-            this.scene.add(this.utility.drawColumn(o.fromLocation.getCoordinate()));
-            this.scene.add(this.utility.drawColumn(o.destLocation.getCoordinate()));
+            this.globe.add(curve.mesh);
+            this.globe.add(this.utility.drawColumn(o.fromLocation.getCoordinate()));
+            this.globe.add(this.utility.drawColumn(o.destLocation.getCoordinate()));
         });
 
     }
@@ -508,11 +502,27 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
         this.status.update();
     }
 
+    generateTextTexture(text, fontSize = 64, fontFamily = 'Microsoft JhengHei') {
+        const wrap = document.createElement('div');
+        wrap.style.position = 'absolute';
+        wrap.style.zIndex = '999999';
+        wrap.style.backgroundColor = 'skyblue';
+        const canvas = document.createElement('canvas');
+        canvas.style.opacity = '0.5';
+        wrap.appendChild(canvas);
+        document.body.appendChild(wrap);
 
-    movingSphere = [];
-    maxDarwCount = 10;
-    currentDrawCount = 0;
-    drawPueue = [];
+        canvas.width = 192;
+        canvas.height = 70;
+        var context = canvas.getContext('2d');
 
+        context.fillStyle = '#FF0000';
+        context.font = `${fontSize}px ${fontFamily}`;
+        context.fillText(text, 0, 64);
+        // Draw stuff such as text on the canvas
+
+        // Use canvas as a texture
+        return new THREE.CanvasTexture(canvas);
+    }
 
 }

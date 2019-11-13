@@ -1,3 +1,4 @@
+import Earcut from "earcut";
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, ViewContainerRef } from '@angular/core';
 import * as THREE from 'three';
@@ -6,6 +7,7 @@ import * as  TrackballControls from 'three-trackballcontrols';
 import GLTFLoader from 'three-gltf-loader';
 import TWEEN from '@tweenjs/tween.js';
 import { geoInterpolate } from 'd3-geo';
+import { EarthManagement } from 'src/app/Common/earth-utility';
 
 @Component({
     selector: 'app-test-globe',
@@ -15,27 +17,28 @@ import { geoInterpolate } from 'd3-geo';
 export class TestGlobeComponent implements OnInit, AfterViewInit {
 
     @ViewChild('webGl', { static: false }) webglEl: ElementRef;
-
-    constructor(private viewContainerRef: ViewContainerRef, private http: HttpClient) { }
-
-    ngOnInit() {
-    }
-
     controls;
     renderer;
     scene;
     camera;
+    utility: EarthManagement;
+
+    constructor(private viewContainerRef: ViewContainerRef, private http: HttpClient) {
+        this.utility = new EarthManagement(http, 'sphere');
+    }
+
+    ngOnInit() {
+    }
 
     ngAfterViewInit() {
         let globalContainer = this.viewContainerRef.element.nativeElement.querySelector('.global-conatiner');
-
 
         setTimeout(() => {
             var WIDTH = globalContainer.clientWidth,
                 HEIGHT = globalContainer.clientHeight;
 
 
-            var angle = 75,
+            var angle = 45,
                 aspect = WIDTH / HEIGHT,
                 near = 0.5,
                 far = 1000;
@@ -46,104 +49,94 @@ export class TestGlobeComponent implements OnInit, AfterViewInit {
 
             this.camera = new THREE.PerspectiveCamera(angle, aspect, near, far);
             this.renderer.setSize(WIDTH, HEIGHT);
-            // this.renderer.setClearColor(0xffffff, 1);
             globalContainer.appendChild(this.renderer.domElement);
 
-            // create a point light (goes in all directions)
-            this.scene.add(new THREE.AmbientLight(0x71ABEF));
-
-            Array.from({ length: 5 }).forEach(() => { this.loadGltfModel(this.scene, true); });
+            this.scene.add(new THREE.AmbientLight(0xFFFFFF));
 
 
+            this.utility.fetchGeojson().subscribe(geoJson => {
+
+                geoJson[0].features.forEach((o, i) => {
+
+                    console.log(o)
+
+                    this.scene.add(this.utility.createCounty(o));
+
+                });
 
 
-            // Create a sphere to make visualization easier.
-            var geometry = new THREE.SphereGeometry(1, 32, 32);
-            var material = new THREE.MeshPhongMaterial({
-                color: 0xDDDDDD,
-                wireframe: false,
-                transparent: true
+                // console.log(data1, triangles1, deviation1)
+
+                /*
+                     6----7
+                    /|   /|
+                   2----3 |
+                   | |  | |
+                   | 4--|-5
+                   |/   |/
+                   0----1
+                */
+
+                // geometry1.faces.push(
+                //     // front
+                //     new THREE.Face3(0, 3, 2),
+                //     new THREE.Face3(0, 1, 3),
+                //     // right
+                //     new THREE.Face3(1, 7, 3),
+                //     new THREE.Face3(1, 5, 7),
+                //     // back
+                //     new THREE.Face3(5, 6, 7),
+                //     new THREE.Face3(5, 4, 6),
+                //     // left
+                //     new THREE.Face3(4, 2, 6),
+                //     new THREE.Face3(4, 0, 2),
+                //     // top
+                //     new THREE.Face3(2, 7, 6),
+                //     new THREE.Face3(2, 3, 7),
+                //     // bottom
+                //     new THREE.Face3(4, 1, 0),
+                //     new THREE.Face3(4, 5, 1),
+                // );
+
+                // console.log('geometry1', geometry1)
+
+                // const material1 = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+
+                // const cube = new THREE.Mesh(geometry1, material1);
+                // this.scene.add(cube);
+
+
+
             });
 
-            let coords = Utility.convertToPlaneCoords([25.0169638, 121.226181], 100);
-            let coords1 = Utility.convertToPlaneCoords([40.6971494, -74.2598655], 100);
-
-            var sphere = new THREE.Mesh(geometry, material);
-            sphere.position.x = coords[0];
-            sphere.position.y = coords[1];
-
-            var sphere1 = new THREE.Mesh(geometry, material);
-            sphere1.position.x = coords1[0];
-            sphere1.position.y = coords1[1];
-            sphere.userData = {
-                name: 'Taipei'
-            };
-
-
-            this.scene.add(sphere);
-            this.scene.add(sphere1);
-
-            var raycaster = new THREE.Raycaster(); // create once
-            var mouse = new THREE.Vector2(); // create once
-
-            globalContainer.addEventListener('click', (event) => {
-                mouse.x = (event.offsetX / this.renderer.domElement.clientWidth) * 2 - 1;
-                mouse.y = - (event.offsetY / this.renderer.domElement.clientHeight) * 2 + 1;
-
-                // console.log(event.clientX, this.renderer.domElement.clientWidth)
-                raycaster.setFromCamera(mouse, this.camera);
-
-                var intersects = raycaster.intersectObjects(this.scene.children, true);
-                // console.log(intersects)
-                intersects.forEach(o => {
-                    if (o.object.hasOwnProperty('userData')) {
-                        if (o.object.userData.hasOwnProperty('name')) {
-                            alert(o.object.userData.name)
-                        }
-                    }
-                })
-            });
-
-
-            sphere.castShadow = true;
-            sphere.receiveShadow = true;
-
-            var group = new THREE.Group();
-
-            // var textureLoader = new THREE.TextureLoader();
-            // var textureFlare0 = textureLoader.load( '/assets/images/lensflare0.png' );
-
-            //Draw the GeoJSON at THREE.ParticleSystemMaterial
-            var countries = this.http.get("/assets/custom.geo_large.json").subscribe((result) => {
-                Utility.drawThreeGeo(result, 100, 'plane', {
-                    color: 0xffffff
-                }, group);
-            });
-
-            // var rivers = this.http.get("https://s3-us-west-2.amazonaws.com/s.cdpn.io/230399/rivers.geojson").subscribe((result) => {
-            //     Utility.drawThreeGeo(result, 10, 'plane', {
-            //         color: '#4A90E2'
-            //     }, group);
-            // });
-            group.rotation.z = Math.PI / 2;
-            group.rotation.y = Math.PI;
-
-            this.scene.add(group);
 
             //Set the camera position
             this.camera.position.z = 120;
 
             //Enable controls
             this.controls = new TrackballControls(this.camera, globalContainer);
-            // this.controls.noRotate = true;
-            // this.controls.updateMouseEvent({
-            //     PAN: 0,
-            //     ROTATE: 2
-            // })
-            // Slow down zooming
-            // this.controls.zoomSpeed = 0.1;
+            this.controls.zoomSpeed = 0.01;
+            // this.controls.rotationSpeed = 0.01;
 
-            console.log(this.scene)
+            let raycaster = new THREE.Raycaster();
+
+            ['click', 'touchend'].forEach(listenEvent => {
+                this.renderer.domElement.addEventListener(listenEvent, (event) => {
+                    let mouse = new THREE.Vector2();
+
+                    mouse.x = (event.offsetX / this.renderer.domElement.clientWidth) * 2 - 1;
+                    mouse.y = - (event.offsetY / this.renderer.domElement.clientHeight) * 2 + 1;
+
+                    raycaster.setFromCamera(mouse, this.camera);
+                    let intersects = raycaster.intersectObjects(this.scene.children, true);
+
+                    console.log(intersects)
+
+
+                })
+            })
+
+
 
             this.render();
 
@@ -223,8 +216,8 @@ export class TestGlobeComponent implements OnInit, AfterViewInit {
                 gltf.scene.position.y = coords[1];
 
                 var pointLight = new THREE.PointLight(0xff0000, 1, 100);
-                pointLight.position.set(0,10,0);
-                
+                pointLight.position.set(0, 10, 0);
+
                 // gltf.scene.add(pointLight);
 
                 // var sphereSize = 1000;
