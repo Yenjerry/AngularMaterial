@@ -56,7 +56,7 @@ export class DashboardContentComponent implements OnInit, AfterViewInit {
         };
 
         this.dashboard = [
-            { cols: 2, rows: 2, y: 0, x: 0, component: GlobeEleComponent },
+            { cols: 2, rows: 2, y: 0, x: 0, component: TestGlobeComponent },
             // { cols: 2, rows: 2, y: 0, x: 2, component: GlobeEleComponent },
             // { cols: 2, rows: 2, y: 0, x: 2, component: GlobeEleComponent },
             // { cols: 2, rows: 2, y: 0, x: 2, component: GlobeEleComponent }
@@ -74,8 +74,8 @@ export class DashboardContentComponent implements OnInit, AfterViewInit {
 
             const componentFactory = this.factoryResolver.resolveComponentFactory(element.extraData.component);
             const component = element.viewContainerRef.createComponent(componentFactory);
-            if (component.componentType == GlobalComponent) {
-                let q = component as ComponentRef<GlobalComponent>;
+            if (component.componentType == GlobeEleComponent) {
+                let q = component as ComponentRef<GlobeEleComponent>;
                 q.instance.resizeSubject = element.resizeSubject;
             }
         });

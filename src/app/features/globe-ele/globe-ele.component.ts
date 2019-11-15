@@ -1,8 +1,9 @@
+import { Subject } from 'rxjs';
 import { FlowServiceService } from './../../services/flow-service.service';
 import { FlowVisualizationMesh } from './../../Models/flow-base';
 import { Overlay } from '@angular/cdk/overlay';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, ViewContainerRef, TemplateRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, ViewContainerRef, TemplateRef, OnDestroy, Input } from '@angular/core';
 import * as THREE from 'three';
 import * as  TrackballControls from 'three-trackballcontrols';
 import { Clock } from 'three';
@@ -11,6 +12,7 @@ import status from 'stats.js';
 import { EarthManagement } from 'src/app/Common/earth-utility';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { FlowBase, LocationPoint } from 'src/app/Models/flow-base';
+import { BloomEffect, EffectComposer, EffectPass, RenderPass, KernelSize } from "postprocessing";
 
 @Component({
     selector: 'app-globe-ele',
@@ -23,6 +25,7 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
         this.featureOverlayRef.dispose();
     }
 
+    @Input() resizeSubject: Subject<any>;
     @ViewChild('webgl', { static: false }) webglEl: ElementRef;
     @ViewChild('features', { static: false }) features: TemplateRef<ElementRef>;
     @ViewChild('countyDetail', { static: false }) countyDetail: TemplateRef<ElementRef>;
@@ -32,6 +35,7 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
     mode: 'sphere' | 'plane' = 'sphere';
     control;
     renderer;
+    composer;
     scene;
     camera;
     clock = new Clock();
@@ -63,6 +67,9 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
 
             this.generateVisualization(newFlows);
         });
+        // window.onresize = () => {
+        //     this.resize()
+        // }
     }
 
     private convertGeoToLocationPoint(geoData): LocationPoint {
@@ -212,8 +219,8 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
 
             // Setup camera
             this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000000);
-            this.camera.position.z = 300;
-
+            this.camera.position.set(0, 0, 300);
+            // this.camera.lookAt(0, 0, 0);
             // Setup cameral control.
             this.control = new TrackballControls(this.camera, globalContainer);
             this.control.zoomSpeed = 0.5;
@@ -223,10 +230,32 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
             // this.control.minDistance = this.mode == 'sphere' ? 120 : 1;
             // this.control.maxDistance = 300;
 
+
+
+            this.composer = new EffectComposer(this.renderer);
+
+            const effectPass = new EffectPass(this.camera, new BloomEffect({
+                luminanceThreshold: 0.5,
+                luminanceSmoothing: 1,
+                // blendFunction: BlendFunction.ADD,
+                // width: BlurPass.HUGE,
+                // height: BlurPass.HUGE,
+                kernelSize: KernelSize.HUGE
+
+            }));
+
+            effectPass.renderToScreen = true;
+
+            this.composer.addPass(new RenderPass(this.scene, this.camera));
+            this.composer.addPass(effectPass);
+
             this.utility.createEarth().subscribe((globe) => {
 
-                if (this.mode == 'sphere')
+                if (this.mode == 'sphere') {
                     this.globe = globe;
+                    // this.globe.rotation.x = -Math.PI / 2;
+                    // this.globe.rotation.z = Math.PI / 2;
+                }
                 else
                     this.globe = this.scene;
 
@@ -234,12 +263,21 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
 
                 this.earthReady = true;
                 this.generateVisualization();
+                // this.globe.add(this.utility.drawPoint([121.5236712, 25.0267174]));
                 // The data update!
                 this.enableControl = true;
 
                 this.scene.add(this.utility.createStars(300, 32));
 
                 this.play();
+
+                this.resizeSubject.subscribe(o => {
+                    console.log('ffffffffffffff')
+                    setTimeout(() => {
+
+                        this.resize();
+                    }, 500);
+                });
 
             });
 
@@ -272,6 +310,17 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
 
         });
 
+    }
+
+    resize() {
+        let globalContainer = this.viewContainerRef.element.nativeElement.querySelector('.global-conatiner');
+
+        console.log(globalContainer, globalContainer.clientWidth, globalContainer.clientHeight)
+
+        this.camera.aspect = globalContainer.clientWidth / globalContainer.clientHeight;
+        this.camera.updateProjectionMatrix();
+
+        this.renderer.setSize(globalContainer.clientWidth, globalContainer.clientHeight);
     }
 
     detailOverlay;
@@ -374,8 +423,8 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
             this.globe.add(fromPoint);
             this.globe.add(destPoint);
             this.globe.add(curve.mesh);
-            this.globe.add(this.utility.drawColumn(o.fromLocation.getCoordinate()));
-            this.globe.add(this.utility.drawColumn(o.destLocation.getCoordinate()));
+            this.globe.add(this.utility.drawColumn(o.fromLocation.getCoordinate(), Math.random() * 10));
+            this.globe.add(this.utility.drawColumn(o.destLocation.getCoordinate(), Math.random() * 10));
         });
 
     }
@@ -493,7 +542,8 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.enableControl)
             this.control.update();
 
-        this.renderer.render(this.scene, this.camera);
+        // this.renderer.render(this.scene, this.camera);
+        this.composer.render(this.clock.getDelta());
 
     }
 

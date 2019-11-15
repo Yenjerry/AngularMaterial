@@ -143,17 +143,18 @@ export class EarthManagement {
                 console.log(result[1])
 
                 // Draw taiwan detail county
-                result[0].features.forEach((o, i) => {
-                    group.add(this.createCounty(o));
-                });
+                // result[0].features.forEach((o, i) => {
+                //     group.add(this.createCounty(o));
+                // });
 
                 // Draw globa area exclude taiwan
-                result[1].features.forEach((o, i) => {
+                // result[1].features.forEach((o, i) => {
 
-                    if (o.properties.sovereignt == 'Taiwan')
-                        return true;
-                    group.add(this.createCounty(o));
-                });
+                //     if (o.properties.sovereignt == 'Taiwan')
+                //         return true;
+
+                //     group.add(this.createCounty(o));
+                // });
 
                 // // Draw taiwan area range.
                 // this.drawThreeGeo(result[0], this.radius, this.mode, {
@@ -162,10 +163,10 @@ export class EarthManagement {
                 // }, group);
 
                 // Draw globa area range.
-                // this.drawThreeGeo(result[1], this.radius, this.mode, {
-                //     color: 0x489e77,
-                //     // skinning: true
-                // }, group);
+                this.drawThreeGeo(result[1], this.radius, this.mode, {
+                    color: 0x489e77,
+                    // skinning: true
+                }, group);
 
                 let earth;
                 if (this.mode == 'plane')
@@ -181,6 +182,103 @@ export class EarthManagement {
         });
 
         return observable;
+    }
+
+
+    test() {
+
+        var geom = new THREE.SphereBufferGeometry(this.radius + 1, 360, 360);
+        var colors = [];
+        var color = new THREE.Color();
+        var q = 0xffffff * 0.25;
+        for (let i = 0; i < geom.attributes.position.count; i++) {
+            color.set(0x479C76);
+            color.toArray(colors, i * 3);
+        }
+        geom.addAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+
+        var loader = new THREE.TextureLoader();
+        loader.setCrossOrigin('');
+        var texture = loader.load('/assets/images/water_4k.png');
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(1, 1);
+        var disk = loader.load('/assets/images/circle.png');
+ 
+        var points = new THREE.Points(geom, new THREE.ShaderMaterial({
+            vertexColors: THREE.VertexColors,
+            uniforms: {
+                visibility: {
+                    value: texture
+                },
+                shift: {
+                    value: 0
+                },
+                shape: {
+                    value: disk
+                },
+                size: {
+                    value: 1
+                },
+                scale: {
+                    value: window.innerHeight / 2
+                }
+            },
+            vertexShader: `
+
+                  uniform float scale;
+                  uniform float size;
+
+                  varying vec2 vUv;
+                  varying vec3 vColor;
+
+                  void main() {
+
+                    vUv = uv;
+                    vColor = color;
+                    vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+                    gl_PointSize = size * ( scale / length( mvPosition.xyz ) );
+                    gl_Position = projectionMatrix * mvPosition;
+
+                  }
+              `,
+            fragmentShader: `
+                  uniform sampler2D visibility;
+                  uniform float shift;
+                  uniform sampler2D shape;
+
+                  varying vec2 vUv;
+                  varying vec3 vColor;
+
+
+                  void main() {
+
+                    vec2 uv = vUv;
+                    uv.x += shift;
+                    vec4 v = texture2D(visibility, uv);
+                    if (length(v.rgb) > 1.0) discard;
+
+                    gl_FragColor = vec4( vColor, 1.0 );
+                    vec4 shapeData = texture2D( shape, gl_PointCoord );
+                    if (shapeData.a < 0.5) discard;
+                    gl_FragColor = gl_FragColor * shapeData;
+
+                  }
+              `,
+            transparent: true
+        }));
+
+        var blackGlobe = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            opacity: 0.7,
+            transparent: true
+        }));
+
+        blackGlobe.scale.setScalar(0.99);
+
+        points.add(blackGlobe);
+
+        return points;
     }
 
     /**
@@ -263,7 +361,7 @@ export class EarthManagement {
 
     private convertGeoJSONCoordinateToSphere(coordinates) {
         return coordinates.map((coor) => {
-            let sphereCoordinate = this.convertToSphereCoords(coor[0], coor[1]);
+            let sphereCoordinate = this._convertToSphereCoords(coor[0], coor[1]);
 
             return [sphereCoordinate.x, sphereCoordinate.y, sphereCoordinate.z];
         })
@@ -300,13 +398,23 @@ export class EarthManagement {
         // Not execute computeVertexNormals, because we don't has face UV.
         // geometry.computeVertexNormals();
 
-        let material = new THREE.MeshLambertMaterial({
+
+        let materialConfig = {
             color: color,
             side: THREE.DoubleSide, // two face can see.
             // wireframe: true
             // opacity: 0,
             // transparent: true
-        });
+        };
+
+        if (this.mode != 'plane') {
+            Object.assign(materialConfig, {
+                opacity: 0,
+                transparent: true
+            });
+        }
+
+        let material = new THREE.MeshLambertMaterial(materialConfig);
 
         return new THREE.Mesh(geometry, material);
     }
@@ -314,9 +422,11 @@ export class EarthManagement {
     /**
      * For sphere mode used, the earth atmosphere.
      */
-    createAtmosphere() {
+    createAtmosphere(radius?) {
 
-        const atmosgeometry = this.resourceTracker.track(new THREE.SphereGeometry(this.radius + 5, 60, 30));
+        radius = radius || this.radius + 5;
+
+        const atmosgeometry = this.resourceTracker.track(new THREE.SphereGeometry(radius, 60, 30));
         const atmosphereMaterial = this.resourceTracker.track(new THREE.ShaderMaterial({
             uniforms: THREE.UniformsUtils.clone(Shaders['atmosphere'].uniforms),
             vertexShader: Shaders['atmosphere'].vertexShader,
@@ -356,8 +466,11 @@ export class EarthManagement {
      */
     drawColumn(point, columnHeight = 5, columnWidth = 0.25, columnDepth = 0.25) {
 
-        let position;
-        const cube = this.makeGradientCube(0x0000ff, 0x0000ff, columnWidth, columnHeight, columnDepth, 1);
+        let
+            colors = [0x009A66, 0x3566CD, 0xFDE101, 0xFF6500, 0xCB0032],
+            position,
+            group = new THREE.Group();
+        const cube = this.makeGradientCylinder(columnWidth, columnDepth, columnHeight);
 
         if (this.mode == 'plane') {
             let pt = this.convertToPlaneCoords(point, this.radius);
@@ -368,77 +481,155 @@ export class EarthManagement {
             position = this.convertToSphereCoords(point[0], point[1], columnHeight / 2 / this.radius);
         }
 
-        cube.position.copy(position);
+        cube.rotation.x = Math.PI / 2;
+        group.add(cube);
+        group.position.copy(position);
+
         // Mesh look at sphere center.
         if (this.mode == 'sphere') {
-            cube.lookAt(0, 0, 0);
+            group.lookAt(0, 0, 0);
         }
 
-        return cube;
+        return group;
     }
 
     /**
-     * Generate cube with gradinet color.
+     * Generate box with gradinet color.
      * @param c1 color 1 for gradient start.
      * @param c2 color 2 for gradient end.
-     * @param w the cube width.
-     * @param d the cube depth.
-     * @param h the cube height.
-     * @param opacity the cube opacity.
+     * @param w the box width.
+     * @param d the box depth.
+     * @param h the box height.
+     * @param colors the box gradient colors.
+     * @param opacity the box opacity.
      */
-    makeGradientCube(c1, c2, w, d, h, opacity) {
+    makeGradientBox(c1, c2, w, d, h, colors?, opacity = 1) {
+
         if (typeof opacity === 'undefined') opacity = 1.0;
         if (typeof c1 === 'number') c1 = new THREE.Color(c1);
         if (typeof c2 === 'number') c2 = new THREE.Color(c2);
 
-        let cubeGeometry = this.resourceTracker.track(new THREE.BoxGeometry(w, h, d));
+        colors = colors || [0x009A66, 0x3566CD, 0xFDE101, 0xFF6500, 0xCB0032];
 
-        let cubeMaterial = this.resourceTracker.track(new THREE.MeshPhongMaterial({
-            vertexColors: THREE.VertexColors
-        }));
+        let gradientFaceCount = colors.length - 1,
+            cubeGeometry = this.resourceTracker.track(new THREE.BoxGeometry(w, h, d, 1, 1, gradientFaceCount)),
+            cubeMaterial = this.resourceTracker.track(new THREE.MeshPhongMaterial({
+                vertexColors: THREE.VertexColors
+            }));
 
         if (opacity < 1.0) {
             cubeMaterial.opacity = opacity;
             cubeMaterial.transparent = true;
         }
-        // 0: top - left of one of the side faces. 0 is top - left, 1 is bottom - left, 2 is top - right(anti - clockwise)
-        // 1: bottom - right.vertex 0 is bottom - left, 1 is bottom - right, 2 is top - right. (anti - clockwise)
-        // 2 / 3: same for opposite side
-        // 4 / 5: is top. (4’s vertex zero touches 2’s vertex zero)
-        // 6 / 7 is bottom
-        // 8 / 9 is one side
-        // 10 / 11 is the other side
 
-        for (let ix = 0; ix < 12; ++ix) {
-            switch (ix) {
-                case 8: case 9:
-                    cubeGeometry.faces[ix].vertexColors = [c2, c2, c2];
-                    break;
-                case 10: case 11:
-                    cubeGeometry.faces[ix].vertexColors = [c1, c1, c1];
-                    break;
-                case 0: case 5:
-                    cubeGeometry.faces[ix].vertexColors = [c2, c2, c1];
-                    break;
-                case 2: case 7:
-                    cubeGeometry.faces[ix].vertexColors = [c1, c1, c2];
-                    break;
-                case 1:
-                    cubeGeometry.faces[ix].vertexColors = [c2, c1, c1];
-                    break;
-                case 3:
-                    cubeGeometry.faces[ix].vertexColors = [c1, c2, c2];
-                    break;
-                case 4:
-                    cubeGeometry.faces[ix].vertexColors = [c1, c2, c1];
-                    break;
-                case 6:
-                    cubeGeometry.faces[ix].vertexColors = [c2, c1, c2];
-                    break;
+        cubeGeometry.faces.forEach((face, i) => {
+
+            // top and bottm side only two face.
+            // why 8, the box one side have 2 face, so here we have 4 side and each side is 2 face.
+            if (i >= gradientFaceCount * 8) {
+
+                let ct;
+                if (i % 8 < 2) {
+                    ct = new THREE.Color(colors[0]);
+                    face.vertexColors = [ct, ct, ct];
+                }
+                else {
+                    ct = new THREE.Color(colors[colors.length - 1]);
+                    face.vertexColors = [ct, ct, ct];
+                }
+
+                return true;
             }
-        }
+
+            let t = (i % 8),
+                // 4 side 0,1,2,3
+                faceSide = Math.floor(i / 8),
+                c1, c2,
+                // Current used color index.
+                colorCount = Math.floor(t / 2);
+
+            // Odd side.
+            if (faceSide == 0 || faceSide == 3) {
+                c1 = new THREE.Color(colors[colorCount]);
+                c2 = new THREE.Color(colors[colorCount + 1]);
+            }
+            // Even side.
+            else {
+                c1 = new THREE.Color(colors[Math.abs(colorCount - 4)]);
+                c2 = new THREE.Color(colors[Math.abs(colorCount - 3)]);
+            }
+
+            if (faceSide < 2) {
+                // Even face
+                if (i % 2 == 0) {
+                    face.vertexColors = [c1, c1, c2];
+                }
+                // Odd face
+                else {
+                    face.vertexColors = [c1, c2, c2];
+                }
+            }
+            else {
+                // Even face
+                if (i % 2 == 0) {
+                    face.vertexColors = [c1, c2, c1];
+                }
+                // Odd face
+                else {
+                    face.vertexColors = [c2, c2, c1];
+                }
+            }
+
+        });
 
         return this.resourceTracker.track(new THREE.Mesh(cubeGeometry, cubeMaterial));
+    }
+
+    makeGradientCylinder(radiusTop, radiusBottom, height, radialSegments = 16, heightSegments = 4, opacity = 1, openEnded = false, thetaStart?, thetaLength?) {
+
+        let geometry = this.resourceTracker.track(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength)),
+            material = this.resourceTracker.track(new THREE.MeshPhongMaterial({
+                vertexColors: THREE.VertexColors
+            })),
+            colors = [0x009A66, 0x3566CD, 0xFDE101, 0xFF6500, 0xCB0032],
+            topColor = new THREE.Color(colors[0]),
+            bottomColor = new THREE.Color(colors[colors.length - 1]);
+
+        if (opacity < 1.0) {
+            material.opacity = opacity;
+            material.transparent = true;
+        }
+
+        geometry.faces.forEach((face, i) => {
+
+            // top and bottom area.
+            if (i >= geometry.faces.length - (radialSegments * 2)) {
+                if (i < geometry.faces.length - radialSegments)
+                    face.vertexColors = [topColor, topColor, topColor];
+                else
+                    face.vertexColors = [bottomColor, bottomColor, bottomColor];
+                return true;
+            }
+
+            let colorCount = Math.floor(i % (heightSegments * 2) / 2);
+
+            if (i % (heightSegments * 2) == 0) {
+                colorCount = 0;
+            }
+
+            let c1 = new THREE.Color(colors[colorCount]);
+            let c2 = new THREE.Color(colors[colorCount + 1]);
+
+            if (i % 2 == 0)
+                face.vertexColors = [c1, c2, c1];
+            else
+                face.vertexColors = [c2, c2, c1];
+
+        });
+
+        let cylinder = this.resourceTracker.track(new THREE.Mesh(geometry, material));
+
+        return cylinder;
     }
 
     /**
@@ -671,7 +862,7 @@ export class EarthManagement {
      * @param latitude
      * @param altidute 
      */
-    convertToSphereCoords(longtitude, latitude, altidute = 0) {
+    _convertToSphereCoords(longtitude, latitude, altidute = 0) {
 
         let r = this.radius * (1 + altidute);
         return new THREE.Vector3(
@@ -679,6 +870,19 @@ export class EarthManagement {
             Math.cos(latitude * Math.PI / 180) * Math.sin(longtitude * Math.PI / 180) * r,
             Math.sin(latitude * Math.PI / 180) * r
         );
+    }
+
+    convertToSphereCoords(longtitude, latitude, altidute = 0) {
+
+        var relAltitude = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
+        var phi = (90 - latitude) * Math.PI / 180;
+        var theta = (90 - longtitude) * Math.PI / 180;
+        var r = this.radius * (1 + relAltitude);
+        return {
+            x: r * Math.sin(phi) * Math.cos(theta),
+            y: r * Math.cos(phi),
+            z: r * Math.sin(phi) * Math.sin(theta)
+        };
     }
 
     /**
@@ -742,6 +946,9 @@ export class EarthManagement {
 
             // revert to original rotation
             camera.position.copy(startPosition);
+
+            console.log(startPosition, endPosition, targerPoint)
+
 
             let tween = new TWEEN.Tween(startPosition);
             tween.to(endPosition, 1500);

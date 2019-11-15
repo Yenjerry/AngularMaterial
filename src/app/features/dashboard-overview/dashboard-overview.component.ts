@@ -14,7 +14,7 @@ export class DashboardOverviewComponent implements OnInit, AfterViewInit {
 
     // @ViewChild('tipsObj', { static: false }) obj: ElementRef;
     overlayRef: OverlayRef;
-    items = Array.from({ length: 100000 }).map((_, i) => `Item #${i}`);
+    items = Array.from({ length: 3 }).map((_, i) => `Item #${i}`);
 
     constructor(private viewContainerRef: ViewContainerRef, private overlay: Overlay, private factoryResolver: ComponentFactoryResolver) {
 

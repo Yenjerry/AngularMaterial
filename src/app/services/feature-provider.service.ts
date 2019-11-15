@@ -39,6 +39,10 @@ export class FeatureProviderService {
             id: Utility.UUID(),
             name: 'stepper',
             navigate: "/dashboard/stepper"
+        }, {
+            id: Utility.UUID(),
+            name: 'D3 Test',
+            navigate: "/dashboard/d3test"
         }];
     }
 }

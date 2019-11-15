@@ -64,6 +64,7 @@ import { MessageDialogComponent } from './features/message-dialog/message-dialog
 import { GlobalComponent } from './features/global/global.component';
 import { GlobeEleComponent } from './features/globe-ele/globe-ele.component';
 import { TestGlobeComponent } from './features/test-globe/test-globe.component';
+import { D3testComponent } from './features/d3test/d3test.component';
 
 
 /**
@@ -105,7 +106,8 @@ export function customTranslateLoader(http: HttpClient) {
         MessageDialogComponent,
         GlobalComponent,
         GlobeEleComponent,
-        TestGlobeComponent
+        TestGlobeComponent,
+        D3testComponent
     ],
     imports: [
         BrowserModule,
@@ -165,7 +167,8 @@ export function customTranslateLoader(http: HttpClient) {
         MessageDialogComponent,
         GlobalComponent,
         GlobeEleComponent,
-        TestGlobeComponent
+        TestGlobeComponent,
+        D3testComponent
     ],
     providers: [{
         provide: UrlSerializer,
