@@ -210,7 +210,7 @@ export class GlobeEleComponent implements OnInit, AfterViewInit, OnDestroy {
             globalContainer.appendChild(this.renderer.domElement);
 
             this.scene = new THREE.Scene();
-            this.scene.add(new THREE.AmbientLight(0xbbbbbb, 1));
+            this.scene.add(new THREE.AmbientLight(0xbbbbbb, 0.1));
 
             let directionLight = new THREE.DirectionalLight(0xffffff, 0.75);
             this.scene.add(directionLight);

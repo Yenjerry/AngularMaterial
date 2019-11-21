@@ -1,3 +1,5 @@
+import { AreaComponent } from './../../Charts/area/area.component';
+import { D3testComponent } from './../d3test/d3test.component';
 
 import { GlobalComponent } from './../global/global.component';
 import { switchMap } from 'rxjs/operators';
@@ -56,10 +58,14 @@ export class DashboardContentComponent implements OnInit, AfterViewInit {
         };
 
         this.dashboard = [
-            { cols: 2, rows: 2, y: 0, x: 0, component: TestGlobeComponent },
+            // { cols: 2, rows: 2, y: 0, x: 0, component: D3testComponent },
+            
             // { cols: 2, rows: 2, y: 0, x: 2, component: GlobeEleComponent },
             // { cols: 2, rows: 2, y: 0, x: 2, component: GlobeEleComponent },
-            // { cols: 2, rows: 2, y: 0, x: 2, component: GlobeEleComponent }
+            // { cols: 2, rows: 2, y: 0, x: 0, component: AreaComponent },
+            // { cols: 2, rows: 2, y: 0, x: 0, component: AreaComponent },
+            // { cols: 2, rows: 2, y: 0, x: 0, component: AreaComponent },
+            { cols: 2, rows: 2, y: 0, x: 0, component: AreaComponent }
         ];
 
         // console.log(this.route.snapshot.paramMap.get('id'), '!!!!!!!!!!!!!!!!!!!!!!!!!!')

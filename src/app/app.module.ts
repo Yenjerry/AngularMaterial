@@ -65,6 +65,7 @@ import { GlobalComponent } from './features/global/global.component';
 import { GlobeEleComponent } from './features/globe-ele/globe-ele.component';
 import { TestGlobeComponent } from './features/test-globe/test-globe.component';
 import { D3testComponent } from './features/d3test/d3test.component';
+import { AreaComponent } from './Charts/area/area.component';
 
 
 /**
@@ -107,7 +108,8 @@ export function customTranslateLoader(http: HttpClient) {
         GlobalComponent,
         GlobeEleComponent,
         TestGlobeComponent,
-        D3testComponent
+        D3testComponent,
+        AreaComponent
     ],
     imports: [
         BrowserModule,
@@ -168,7 +170,8 @@ export function customTranslateLoader(http: HttpClient) {
         GlobalComponent,
         GlobeEleComponent,
         TestGlobeComponent,
-        D3testComponent
+        D3testComponent,
+        AreaComponent
     ],
     providers: [{
         provide: UrlSerializer,

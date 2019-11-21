@@ -9,6 +9,7 @@ import { LoginComponent } from './layout/login/login.component';
 import { AuthGuard } from './auth/auth.guard';
 import { MessageDialogComponent } from './features/message-dialog/message-dialog.component';
 import { D3testComponent } from './features/d3test/d3test.component';
+import { AreaComponent } from './Charts/area/area.component';
 
 
 // If user agent is mobile device, the we will automatically navigate to mobile page.
