@@ -12,7 +12,7 @@
                     "style": "scss"
                 }
             },
-            "root": "",
+            "root": "AngularMaterial",
             "sourceRoot": "src",
             "prefix": "app",
             "architect": {
