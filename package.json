@@ -51,6 +51,7 @@
     "three-trackballcontrols": "0.0.8",
     "three.meshline": "^1.2.0",
     "tslib": "^1.10.0",
+    "webpack": "^4.41.2",
     "zone.js": "~0.9.1"
   },
   "devDependencies": {
