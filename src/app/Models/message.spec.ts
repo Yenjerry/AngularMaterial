@@ -1,7 +1,7 @@
-import { Message } from './message';
+import { SyscomMessage } from "./message";
 
 describe('Message', () => {
   it('should create an instance', () => {
-    expect(new Message()).toBeTruthy();
+    expect(new SyscomMessage()).toBeTruthy();
   });
 });

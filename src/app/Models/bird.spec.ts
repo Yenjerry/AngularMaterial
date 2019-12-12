@@ -1,4 +1,5 @@
-import { Bird } from './bird';
+import Bird from "./bird";
+
 
 describe('Bird', () => {
   it('should create an instance', () => {
