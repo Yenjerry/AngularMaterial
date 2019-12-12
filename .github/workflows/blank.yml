@@ -1,21 +1,34 @@
 name: Build and Deploy
-
-on: [push]
-
+on:
+  push:
+    branches:
+      - master
 jobs:
-  build:
-
+  install-and-test:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        node-version: [10.x, 12.x]
     steps:
-    - name: CheckOut
-      uses: actions/checkout@v1
-      
-    - name: Build and Deploy
-      uses: JamesIves/github-pages-deploy-action@releases/v3
-      with:
-        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-        BASE_BRANCH: master # The branch the action should deploy from.
-        BRANCH: gh-pages
-        FOLDER: build # The folder the action should deploy.
-        BUILD_SCRIPT: npm install && npm run-script build
+      - uses: actions/checkout@master
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@master
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install and Test
+        env:
+          CI: true
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Build and Deploy
+        uses: JamesIves/github-pages-deploy-action@master
+        env:
+          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          BRANCH: gh-pages
+          FOLDER: build
+          BUILD_SCRIPT: npm i && npm run-script build
