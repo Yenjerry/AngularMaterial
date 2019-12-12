@@ -8,6 +8,7 @@ import { Vector3, CubicBezierCurve3 } from 'three';
 import ThreeGlobe from 'three-globe';
 import * as  TrackballControls from 'three-trackballcontrols';
 import { TemplatePortal } from '@angular/cdk/portal';
+import { geoDistance, geoInterpolate } from 'd3-geo';
 
 
 @Component({
