@@ -1,6 +1,7 @@
 {
   "name": "material",
   "version": "0.0.0",
+  "homepage": "https://Yenjerry.github.io/material",
   "scripts": {
     "ng": "ng",
     "postinstall": "ngc -p ./angular-metadata.tsconfig.json",

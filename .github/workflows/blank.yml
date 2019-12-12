@@ -1,0 +1,21 @@
+name: Build and Deploy
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: CheckOut
+      uses: actions/checkout@v1
+      
+    - name: Build and Deploy
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      with:
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        BASE_BRANCH: master # The branch the action should deploy from.
+        BRANCH: master
+        FOLDER: dist/material # The folder the action should deploy.
+        BUILD_SCRIPT: npm install && npm run build
