@@ -1,14 +1,12 @@
 import { Subject } from 'rxjs';
 import { Overlay } from '@angular/cdk/overlay';
 import { HttpClient } from '@angular/common/http';
-import { Utility } from './../../Common/utility';
+
 import { Component, OnInit, AfterViewInit, ViewContainerRef, ViewChild, ElementRef, AfterContentInit, AfterViewChecked, NgZone, TemplateRef, Input } from '@angular/core';
 import * as THREE from 'three';
 import { Vector3, CubicBezierCurve3 } from 'three';
 import ThreeGlobe from 'three-globe';
 import * as  TrackballControls from 'three-trackballcontrols';
-import { geoGraticule10, geoDistance, geoInterpolate } from 'd3-geo';
-import { OrbitControls } from 'three-orbitcontrols-ts';
 import { TemplatePortal } from '@angular/cdk/portal';
 
 

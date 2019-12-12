@@ -1,8 +1,5 @@
 import { AreaComponent } from './../../Charts/area/area.component';
-import { D3testComponent } from './../d3test/d3test.component';
 
-import { GlobalComponent } from './../global/global.component';
-import { switchMap } from 'rxjs/operators';
 import { Router, ActivatedRoute, ParamMap } from '@angular/router';
 import { DynamicComponentLoadDirective } from './../../Directives/dynamic-component-load.directive';
 import { PieChartComponent } from './../pie-chart/pie-chart.component';
@@ -11,7 +8,7 @@ import { GridsterConfig, GridsterItem, GridsterItemComponent } from 'angular-gri
 import { ComponentPortal } from '@angular/cdk/portal';
 import { ObservableInput, OperatorFunction, Subject } from 'rxjs';
 import { GlobeEleComponent } from '../globe-ele/globe-ele.component';
-import { TestGlobeComponent } from '../test-globe/test-globe.component';
+
 
 @Component({
     selector: 'app-dashboard-content',

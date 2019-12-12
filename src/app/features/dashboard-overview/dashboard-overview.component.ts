@@ -1,7 +1,7 @@
-import { CustomTipsComponent } from './../custom-tips/custom-tips.component';
+
 import { Component, OnInit, ViewContainerRef, ElementRef, ViewChild, ComponentFactoryResolver, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
-import { TemplatePortal, ComponentPortal } from '@angular/cdk/portal';
+
 
 @Component({
     selector: 'app-dashboard-overview',
