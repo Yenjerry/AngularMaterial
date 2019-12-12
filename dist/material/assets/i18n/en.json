@@ -1,0 +1,15 @@
+{
+    "test": "just for test translate",
+    "title": "DashBoard",
+    "content": "Content",
+    "dashboard": "DashBoard",
+    "login": "Login page",
+    "stepper": "Step flow page",
+    "account": "Account",
+    "password": "Password",
+    "loginauth": "Login",
+    "setting": "Setting",
+    "interface": "Interface",
+    "flow": "Flow",
+    "group": "Group"
+}
