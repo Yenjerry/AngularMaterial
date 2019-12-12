@@ -5,7 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, AfterViewInit, ViewContainerRef, ViewChild, ElementRef, AfterContentInit, AfterViewChecked, NgZone, TemplateRef, Input } from '@angular/core';
 import * as THREE from 'three';
 import { Vector3, CubicBezierCurve3 } from 'three';
-import ThreeGlobe from 'three-globe';
+// import ThreeGlobe from 'three-globe';
 import * as  TrackballControls from 'three-trackballcontrols';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { geoDistance, geoInterpolate } from 'd3-geo';
@@ -81,38 +81,38 @@ export class GlobalComponent implements OnInit, AfterViewInit {
             this.renderer.setPixelRatio(window.devicePixelRatio);
             this.webglEl.nativeElement.appendChild(this.renderer.domElement);
 
-            const Globe = new ThreeGlobe()
-                .globeImageUrl('/assets/images/2_no_clouds_4k.jpg')
-                .bumpImageUrl('/assets/images/elev_bump_4k.jpg')
-                .showAtmosphere(false)
-                // .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
-                .arcsData(arcsData)
-                .showGraticules(true)
-                .arcStroke(1)
-                .arcCurveResolution(200)
-                .arcDashAnimateTime(500)
-                .arcsTransitionDuration(0)
-                .arcDashGap(2)
-                .arcColor('color');
+            // const Globe = new ThreeGlobe()
+            //     .globeImageUrl('/assets/images/2_no_clouds_4k.jpg')
+            //     .bumpImageUrl('/assets/images/elev_bump_4k.jpg')
+            //     .showAtmosphere(false)
+            //     // .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
+            //     .arcsData(arcsData)
+            //     .showGraticules(true)
+            //     .arcStroke(1)
+            //     .arcCurveResolution(200)
+            //     .arcDashAnimateTime(500)
+            //     .arcsTransitionDuration(0)
+            //     .arcDashGap(2)
+            //     .arcColor('color');
 
-            this.globe = Globe;
+            // this.globe = Globe;
 
-            Globe.rotation.y = -Math.PI / 1.45;
+            // Globe.rotation.y = -Math.PI / 1.45;
 
-            this.scene = new THREE.Scene();
-            this.sphere = Globe;
-            this.scene.add(Globe);
-            this.scene.add(new THREE.AmbientLight(0xbbbbbb, .1));
+            // this.scene = new THREE.Scene();
+            // this.sphere = Globe;
+            // this.scene.add(Globe);
+            // this.scene.add(new THREE.AmbientLight(0xbbbbbb, .1));
 
-            this.light = new THREE.DirectionalLight(0xffffff, 1);
-            this.light.position.x = -90;
-            this.light.position.z = 270;
-            this.scene.add(this.light);
+            // this.light = new THREE.DirectionalLight(0xffffff, 1);
+            // this.light.position.x = -90;
+            // this.light.position.z = 270;
+            // this.scene.add(this.light);
 
 
-            arcsData.forEach(o => {
-                this.drawCubicBezierCurve3([o.startLng, o.startLat], [o.endLng, o.endLat]);
-            })
+            // arcsData.forEach(o => {
+            //     this.drawCubicBezierCurve3([o.startLng, o.startLat], [o.endLng, o.endLat]);
+            // })
 
 
             // var loader = new THREE.ObjectLoader();

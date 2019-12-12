@@ -1,6 +1,6 @@
 import { Subject, forkJoin, Observable } from 'rxjs';
 import TWEEN from '@tweenjs/tween.js';
-import ThreeGlobe from 'three-globe';
+
 import * as THREE from 'three';
 import { geoDistance, geoInterpolate } from 'd3-geo';
 import { CubicBezierCurve3 } from 'three';
