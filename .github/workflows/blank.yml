@@ -17,3 +17,4 @@ jobs:
         ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         BASE_BRANCH: master # The branch the action should deploy from.
         FOLDER: dist/material # The folder the action should deploy.
+        BUILD_SCRIPT: npm install && npm run build
