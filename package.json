@@ -4,7 +4,7 @@
   "homepage": "https://Yenjerry.github.io/AngularMaterial",
   "scripts": {
     "ng": "ng",
-    "postinstall": "ng -p ./angular-metadata.tsconfig.json",
+    "postinstall": "ngc -p ./angular-metadata.tsconfig.json",
     "start": "ng serve",
     "build": "ng build",
     "test": "ng test",
