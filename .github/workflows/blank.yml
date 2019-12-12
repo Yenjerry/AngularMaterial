@@ -16,6 +16,6 @@ jobs:
       with:
         ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         BASE_BRANCH: master # The branch the action should deploy from.
-        BRANCH: gh-pages
+        BRANCH: master
         FOLDER: build # The folder the action should deploy.
         BUILD_SCRIPT: npm install && npm run-script build
