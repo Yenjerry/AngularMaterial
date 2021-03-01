@@ -44,7 +44,7 @@
     "rxjs": "~6.4.0",
     "saturn-datepicker": "^8.0.1",
     "stats.js": "^0.17.0",
-    "three": "^0.109.0",
+    "three": "^0.125.0",
     "three-globe": "^2.2.2",
     "three-gltf-loader": "^1.109.0",
     "three-orbitcontrols-ts": "^0.1.2",
